@@ -1,15 +1,15 @@
-"""The Line Producer: plans, sequences specialists, holds shared state.
+"""The Line Producer: plans, sequences specialists, holds shared state,
+enforces the human approval gate, and assembles the final package.
 
-ADK ships `SequentialAgent` for exactly this shape, but in the installed
-ADK version (2.5.0) it is deprecated in favor of a newer graph-based
-`Workflow` primitive that is not yet a drop-in `BaseAgent` (it can't be
-handed to `Runner` or nested as a sub-agent the way `SequentialAgent` can).
-Rather than build on a deprecated class or an early-stage API, the Line
-Producer implements the same "run sub-agents in order, sharing session
-state" behavior directly as a small custom `BaseAgent` — a few lines of
-code, and it is exactly the "orchestrator holds shared state" role the
-architecture assigns it, which also makes it the natural place to add the
-human approval gate in Phase 4.
+ADK ships `SequentialAgent`/`LoopAgent` for pieces of this shape, but in the
+installed ADK version (2.5.0) they are deprecated in favor of a newer
+graph-based `Workflow` primitive that is not yet a drop-in `BaseAgent` (it
+can't be handed to `Runner` or nested as a sub-agent). The Line Producer's
+control flow is also no longer purely linear as of Phase 4 — it needs a
+capped retry loop around Scheduler/Budget/Risk, and a conditional skip of
+the Resource Agent if the approval gate rejects the budget — which a plain
+SequentialAgent couldn't express anyway. So it stays a small, explicit
+custom `BaseAgent` that drives its sub-agents directly.
 """
 
 from __future__ import annotations
@@ -20,41 +20,94 @@ from google.adk.agents.base_agent import BaseAgent
 from google.adk.agents.invocation_context import InvocationContext
 from google.adk.events import Event
 
+from ..agents.approval_gate import ApprovalDecider, build_approval_gate, cli_approval_decider
 from ..agents.budget import build_budget_agent
 from ..agents.package_assembler import build_package_assembler
 from ..agents.resource import build_resource_agent
+from ..agents.risk import build_risk_agent
 from ..agents.script_supervisor import build_script_supervisor
-from ..agents.scheduler import build_first_ad_scheduler
+from ..agents.scheduler import FirstADScheduler, build_first_ad_scheduler
 from ..config import Settings
 from ..tools.scheduler_solver import DEFAULT_MAX_PAGES_PER_DAY
 
+MIN_PAGES_PER_DAY = 2.0
+REPLAN_SHRINK_FACTOR = 0.85
+MAX_REPLANS = 2
+
 
 class LineProducer(BaseAgent):
+    max_replans: int = MAX_REPLANS
+
     async def _run_async_impl(
         self, ctx: InvocationContext
     ) -> AsyncGenerator[Event, None]:
-        if not self.sub_agents:
-            raise RuntimeError(f"{self.name} has no sub_agents configured.")
+        (
+            script_supervisor,
+            scheduler,
+            budget_agent,
+            risk_agent,
+            approval_gate,
+            resource_agent,
+            package_assembler,
+        ) = self.sub_agents
+        assert isinstance(scheduler, FirstADScheduler)
 
-        for sub_agent in self.sub_agents:
-            async for event in sub_agent.run_async(ctx):
+        async for event in script_supervisor.run_async(ctx):
+            yield event
+
+        for attempt in range(self.max_replans + 1):
+            async for event in scheduler.run_async(ctx):
                 yield event
+            async for event in budget_agent.run_async(ctx):
+                yield event
+            async for event in risk_agent.run_async(ctx):
+                yield event
+
+            risk_data = ctx.session.state.get("risk_report") or {}
+            if not risk_data.get("replan_requested") or attempt == self.max_replans:
+                break
+            # Bounded reflection loop: tighten the scheduler's constraint
+            # and try again, rather than looping indefinitely.
+            scheduler.max_pages_per_day = max(
+                scheduler.max_pages_per_day * REPLAN_SHRINK_FACTOR, MIN_PAGES_PER_DAY
+            )
+
+        async for event in approval_gate.run_async(ctx):
+            yield event
+
+        approval = ctx.session.state.get("approval") or {}
+        if approval.get("approved", False):
+            async for event in resource_agent.run_async(ctx):
+                yield event
+        # else: resources stays absent from state; the Package Assembler
+        # reflects a rejected/ungrounded-resources package rather than
+        # silently proceeding to commit anything.
+
+        async for event in package_assembler.run_async(ctx):
+            yield event
 
 
 def build_line_producer(
     settings: Settings,
     max_pages_per_day: float = DEFAULT_MAX_PAGES_PER_DAY,
+    approval_decider: ApprovalDecider = cli_approval_decider,
+    max_replans: int = MAX_REPLANS,
 ) -> LineProducer:
     return LineProducer(
         name="line_producer",
         description=(
             "Runs the pre-production crew: screenplay -> breakdown -> "
-            "schedule -> grounded budget & resources -> assembled package."
+            "schedule -> grounded budget -> risk critique (with a bounded "
+            "re-plan loop) -> human approval gate -> grounded resources -> "
+            "assembled package."
         ),
+        max_replans=max_replans,
         sub_agents=[
             build_script_supervisor(settings),
             build_first_ad_scheduler(max_pages_per_day=max_pages_per_day),
             build_budget_agent(settings),
+            build_risk_agent(settings),
+            build_approval_gate(decider=approval_decider),
             build_resource_agent(settings),
             build_package_assembler(),
         ],

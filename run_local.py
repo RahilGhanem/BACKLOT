@@ -27,6 +27,7 @@ from google.adk.agents.base_agent import BaseAgent
 from google.adk.runners import InMemoryRunner
 from google.genai import types
 
+from backlot.agents.approval_gate import auto_approve_decider, cli_approval_decider
 from backlot.agents.script_supervisor import build_script_supervisor
 from backlot.config import DATA_DIR, OUTPUT_DIR, get_settings
 from backlot.orchestrator import build_line_producer
@@ -70,10 +71,13 @@ async def run_script_supervisor(screenplay_text: str) -> ScriptBreakdown:
     return ScriptBreakdown.model_validate(data)
 
 
-async def run_line_producer(screenplay_text: str) -> ProductionPackage:
+async def run_line_producer(
+    screenplay_text: str, auto_approve: bool = False
+) -> ProductionPackage:
     settings = get_settings()
     settings.require_llm_credentials()
-    agent = build_line_producer(settings)
+    decider = auto_approve_decider if auto_approve else cli_approval_decider
+    agent = build_line_producer(settings, approval_decider=decider)
     data = await _run_agent_and_get_state(agent, screenplay_text, "package")
     return ProductionPackage.model_validate(data)
 
@@ -99,6 +103,12 @@ def main() -> None:
         default=None,
         help="Where to write the result JSON (defaults depend on --stage).",
     )
+    parser.add_argument(
+        "--auto-approve",
+        action="store_true",
+        help="Skip the interactive approval prompt and auto-approve the "
+        "budget band (non-interactive runs, CI, demos).",
+    )
     args = parser.parse_args()
 
     screenplay_text = args.screenplay.read_text(encoding="utf-8")
@@ -113,11 +123,14 @@ def main() -> None:
         print(f"Breakdown written to {out}")
     else:
         out = args.out or (OUTPUT_DIR / "package.json")
-        package = asyncio.run(run_line_producer(screenplay_text))
+        package = asyncio.run(run_line_producer(screenplay_text, auto_approve=args.auto_approve))
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(json.dumps(package.model_dump(), indent=2), encoding="utf-8")
         print(f"'{package.title}' -> {len(package.breakdown.scenes)} scenes, "
               f"{package.schedule.total_shoot_days} shoot day(s)")
+        if package.approval:
+            print(f"Approval: {'approved' if package.approval.approved else 'rejected'} "
+                  f"({package.approval.reason})")
         print(f"Package written to {out}")
 
 

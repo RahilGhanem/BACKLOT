@@ -14,9 +14,11 @@ from google.adk.events import Event, EventActions
 from google.genai import types
 
 from ..schemas import (
+    ApprovalDecision,
     BudgetEstimate,
     ProductionPackage,
     ResourcePlan,
+    RiskReport,
     Schedule,
     ScriptBreakdown,
 )
@@ -42,12 +44,18 @@ class PackageAssembler(BaseAgent):
         breakdown = ScriptBreakdown.model_validate(breakdown_data)
         schedule = Schedule.model_validate(schedule_data)
 
-        # Budget/resources are optional in state: earlier phases (or a
-        # Line Producer configured without the MCP-grounded agents) may
-        # not have produced them yet.
+        # Everything below is optional in state: earlier phases, or a Line
+        # Producer configured without the later crew members, may not have
+        # produced them, and Resources is skipped entirely if the approval
+        # gate rejected the budget.
         budget_data = ctx.session.state.get("budget")
+        risk_data = ctx.session.state.get("risk_report")
+        approval_data = ctx.session.state.get("approval")
         resources_data = ctx.session.state.get("resources")
+
         budget = BudgetEstimate.model_validate(budget_data) if budget_data else None
+        risk_report = RiskReport.model_validate(risk_data) if risk_data else None
+        approval = ApprovalDecision.model_validate(approval_data) if approval_data else None
         resources = ResourcePlan.model_validate(resources_data) if resources_data else None
 
         package = ProductionPackage(
@@ -55,6 +63,8 @@ class PackageAssembler(BaseAgent):
             breakdown=breakdown,
             schedule=schedule,
             budget=budget,
+            risk_report=risk_report,
+            approval=approval,
             resources=resources,
         )
 
@@ -62,6 +72,11 @@ class PackageAssembler(BaseAgent):
             f"Assembled production package for '{package.title}': "
             f"{len(breakdown.scenes)} scenes, {schedule.total_shoot_days} shoot days"
             + (f", ${budget.total_estimated_cost:,.0f} estimated" if budget else "")
+            + (
+                f", budget {'approved' if approval.approved else 'rejected'}"
+                if approval
+                else ""
+            )
             + "."
         )
         yield Event(
@@ -76,5 +91,5 @@ class PackageAssembler(BaseAgent):
 def build_package_assembler() -> PackageAssembler:
     return PackageAssembler(
         name="package_assembler",
-        description="Combines breakdown, schedule, budget, and resources (+ later: risk) into the final package.",
+        description="Combines breakdown, schedule, budget, risk, approval, and resources into the final package.",
     )

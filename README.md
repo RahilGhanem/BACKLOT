@@ -23,7 +23,8 @@ before the next one starts.
       end-to-end spine: script → breakdown → schedule)
 - [x] **Phase 3** — IBM MCP grounding (Budget + Resource agents, via a local
       synthetic mcp_shim server)
-- [ ] **Phase 4** — Risk/Continuity agent, human approval gate, governance
+- [x] **Phase 4** — Risk/Continuity agent (bounded re-plan loop), human
+      approval gate, scoped tool permissions
 - [ ] **Phase 5** — FastAPI + web UI, live agent-activity panel, metrics
 - [ ] **Phase 6** — Previz (Imagen storyboards, Veo animatic, Lyria cue)
 - [ ] **Phase 7** — Deploy to Agent Engine + Cloud Run; point MCP client at
@@ -49,12 +50,15 @@ what this project closes.
    ▼
  LINE PRODUCER (custom ADK orchestrator — see note below)
    ├─ Script Supervisor   (screenplay → breakdown JSON)          [Phase 1 ✅]
-   ├─ 1st-AD Scheduler    (breakdown → stripboard schedule)       [Phase 2 ✅]
-   ├─ Budget Agent        (grounded via IBM MCP)                  [Phase 3 ✅]
-   ├─ Resource Agent      (grounded via IBM MCP)                  [Phase 3 ✅]
-   ├─ Risk/Continuity     (critique + bounded reflection loop)     [Phase 4]
-   ├─ Package Assembler   (combines everything above)              [Phase 2 ✅]
-   └─ Previz Agent        (Imagen / Veo 3.1 / Lyria 3)              [Phase 6]
+   │                                                    ┌──── bounded
+   ├─ 1st-AD Scheduler    (breakdown → stripboard sched)│     re-plan loop
+   ├─ Budget Agent        (grounded via IBM MCP)        │     (max 2 retries,
+   ├─ Risk/Continuity     (critiques sched+budget) ──────┘     Phase 4 ✅)
+   ├─ Approval Gate       (producer approves the budget band)  [Phase 4 ✅]
+   ├─ Resource Agent      (grounded via IBM MCP; skipped if     [Phase 3 ✅]
+   │                       the budget was rejected)
+   ├─ Package Assembler   (combines everything above)          [Phase 2 ✅]
+   └─ Previz Agent        (Imagen / Veo 3.1 / Lyria 3)          [Phase 6]
    │
    ▼
  IBM MCP SERVER (mcp_shim locally with synthetic data; real
@@ -68,11 +72,32 @@ this is the token-efficiency story: only the Script Supervisor ever reads
 the whole script.
 
 **On "ADK orchestrator":** the installed ADK version (2.5.0) deprecates
-`SequentialAgent` in favor of a newer, graph-based `Workflow` primitive that
-isn't yet usable as a plain `BaseAgent` (it can't be handed to `Runner`).
-Rather than build on a deprecated class or an early-stage API, the Line
-Producer is a small custom `BaseAgent` that runs its sub-agents in order —
-see `backlot/orchestrator/line_producer.py` for the reasoning.
+`SequentialAgent`/`LoopAgent` in favor of a newer, graph-based `Workflow`
+primitive that isn't yet usable as a plain `BaseAgent` (it can't be handed
+to `Runner`). The Line Producer's control flow also stopped being purely
+linear once the re-plan loop and the approval-gate skip were added, which
+`SequentialAgent` couldn't express anyway. So it stays a small, explicit
+custom `BaseAgent` — see `backlot/orchestrator/line_producer.py`.
+
+**Governance, concretely, as of Phase 4:**
+- *Scoped tool access* — each MCP-calling agent gets its own `McpToolset`
+  with a `tool_filter`: the Budget Agent can only call the two cost-lookup
+  tools, the Resource Agent only the crew/location tools. Neither can reach
+  a tool the other owns.
+- *Bounded reflection* — the Risk Agent can force a re-plan, but the Line
+  Producer caps it at `max_replans` (default 2) and shrinks the scheduler's
+  pages/day budget deterministically each time, so a stuck loop can't run
+  away with cost or time.
+- *Human approval gate* — the Resource Agent (the step closest to actually
+  committing something) only runs if the budget is approved;
+  `backlot/agents/approval_gate.py` blocks on a CLI prompt by default, but
+  takes an injectable decider so Phase 5's API can swap in an HTTP
+  approve/reject flow without touching the orchestrator.
+- *Injection-safe tool data* — every agent's instruction states that
+  retrieved data (screenplay text, MCP records) is data, never instructions
+  to follow; structurally, tool results also arrive as distinct
+  function-response content blocks in the Gemini API, not concatenated
+  into the prompt as free text.
 
 ## Repo structure
 
@@ -135,11 +160,15 @@ python run_local.py
 ```
 
 This parses `data/screenplays/sample_screenplay.txt` through the full crew
-(breakdown → schedule → grounded budget → grounded resources → assembled
-package) and writes `output/package.json`. Use `--stage breakdown` to run
-only the Script Supervisor (no MCP server needed) and write
-`output/breakdown.json` instead. Pass `--screenplay` / `--out` for a
-different input/output path.
+(breakdown → schedule → grounded budget → risk critique → **approval
+prompt** → grounded resources → assembled package) and writes
+`output/package.json`. The run pauses in your terminal to ask you to
+approve the budget band — answer `y` to continue to resource picks, or
+anything else to see the package with `resources: null`. Pass
+`--auto-approve` to skip the prompt and always approve (useful for demos
+and CI). Use `--stage breakdown` to run only the Script Supervisor (no MCP
+server needed) and write `output/breakdown.json` instead. Pass
+`--screenplay` / `--out` for a different input/output path.
 
 ## Testing
 
