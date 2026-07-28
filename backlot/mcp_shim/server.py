@@ -5,6 +5,12 @@ production (see .env.example and README's "Data note").
 
 Run standalone:
     python -m backlot.mcp_shim.server
+
+Note MCP_SHIM_HOST/MCP_SHIM_PORT (what this process binds to) are separate
+settings from MCP_SERVER_URL (what clients connect to) — see config.py.
+Locally they describe the same address by default; in a cloud deployment
+this process binds 0.0.0.0:$PORT while MCP_SERVER_URL, set on whatever
+connects to it, is this service's public HTTPS URL instead.
 """
 
 from __future__ import annotations
@@ -18,7 +24,7 @@ from .data_loader import load_dataset
 from .matching import best_matches, date_ranges_overlap
 
 _settings = get_settings()
-_parsed_url = urlparse(_settings.mcp_server_url)
+_mcp_path = urlparse(_settings.mcp_server_url).path or "/mcp"
 
 mcp = FastMCP(
     name="backlot-mcp-shim",
@@ -28,9 +34,9 @@ mcp = FastMCP(
         "libraries, and past-schedule patterns behind the same tool "
         "interface the real IBM watsonx.data remote MCP server exposes."
     ),
-    host=_parsed_url.hostname or "127.0.0.1",
-    port=_parsed_url.port or 8765,
-    streamable_http_path=_parsed_url.path or "/mcp",
+    host=_settings.mcp_shim_host,
+    port=_settings.mcp_shim_port,
+    streamable_http_path=_mcp_path,
 )
 
 

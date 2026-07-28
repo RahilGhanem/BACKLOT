@@ -28,8 +28,8 @@ before the next one starts.
 - [x] **Phase 5** — FastAPI + web UI, live agent-activity panel, metrics
 - [x] **Phase 6** — Previz (Imagen storyboards, Veo animatic, Lyria cue) —
       opt-in, see caveat below
-- [ ] **Phase 7** — Deploy to Agent Engine + Cloud Run; point MCP client at
-      the real IBM watsonx.data server
+- [x] **Phase 7** — Deploy to Agent Engine + Cloud Run; point MCP client at
+      the real IBM watsonx.data server — see `docs/DEPLOYMENT.md`
 
 ## Why this shape
 
@@ -137,8 +137,15 @@ data/
 tests/                          # pytest; schema/solver/shim/metrics/API tests always
                                  # run, live-model tests skip automatically without
                                  # credentials (see Testing below)
+deploy/                          # Phase 7 — see docs/DEPLOYMENT.md
+  cloud_run/                      # deploy.sh (main app), deploy_mcp_shim.sh (optional)
+  agent_engine/                    # ADK CLI's expected root_agent convention
+docs/
+  DEPLOYMENT.md                    # the full Phase 7 write-up
 run_local.py                     # CLI entrypoint for local, in-memory runs
 run_server.py                     # FastAPI + web UI entrypoint
+Dockerfile                        # Cloud Run image for the FastAPI app + UI
+Dockerfile.mcp_shim                # optional Cloud Run image for the synthetic MCP shim
 ```
 
 ## Setup
@@ -231,6 +238,18 @@ pytest -v
   *second*, explicit opt-in beyond credentials: `RUN_PREVIZ_LIVE_TESTS=1`.
   Nothing else in the suite sets this, so a routine `pytest -v` never
   triggers billed generative-media calls.
+
+## Deploying
+
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the full write-up. Short
+version: `./deploy/cloud_run/deploy.sh` deploys the complete app (full
+human-in-the-loop approval flow) to Cloud Run — this is the one to demo.
+`./deploy/agent_engine/deploy.sh` deploys just the crew to Vertex AI Agent
+Engine via the ADK CLI, auto-approving the budget band since Agent
+Engine's native session API doesn't have anywhere to plug in the same
+HTTP-approval-relay the Cloud Run deployment uses. Neither script has been
+run against a live project — every flag is grounded in the installed
+`adk`/`gcloud` CLIs' own `--help` output, but verify before a real deploy.
 
 ## Data note
 

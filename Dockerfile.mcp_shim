@@ -1,0 +1,27 @@
+# Optional Cloud Run image for the synthetic MCP shim
+# (backlot/mcp_shim/server.py), useful for demoing the grounded Budget/
+# Resource agents in the cloud before the real IBM watsonx.data remote MCP
+# server is wired up. Once IBM access is available, point MCP_SERVER_URL /
+# MCP_AUTH_TOKEN at it instead and retire this image — see the "Data note"
+# in README.md and docs/DEPLOYMENT.md.
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY backlot ./backlot
+COPY data ./data
+
+ENV PORT=8080
+ENV MCP_SHIM_HOST=0.0.0.0
+EXPOSE 8080
+
+# The shim binds MCP_SHIM_HOST:$PORT (Cloud Run's injected PORT wins over
+# MCP_SHIM_PORT automatically — see backlot/config.py). Whatever connects
+# to this service should set ITS OWN MCP_SERVER_URL to this service's
+# public Cloud Run URL + "/mcp" — a different value from the bind address
+# above, see backlot/mcp_shim/server.py's module docstring.
+CMD ["python", "-m", "backlot.mcp_shim.server"]

@@ -48,9 +48,15 @@ class Settings:
     # App identity
     app_name: str
 
-    # MCP (Phase 3+)
+    # MCP (Phase 3+): mcp_server_url is what CLIENTS (Budget/Resource
+    # agents) connect to; mcp_shim_host/port is what the shim server
+    # itself binds to. Locally these describe the same address, but in a
+    # cloud deployment the shim binds 0.0.0.0:$PORT internally while
+    # clients reach it via its public HTTPS URL — two different strings.
     mcp_server_url: str
     mcp_auth_token: str
+    mcp_shim_host: str
+    mcp_shim_port: int
 
     # Cloud resources (Phase 7)
     gcs_bucket: str
@@ -98,9 +104,14 @@ def get_settings() -> Settings:
         app_name=os.getenv("BACKLOT_APP_NAME", "backlot"),
         mcp_server_url=os.getenv("MCP_SERVER_URL", "http://127.0.0.1:8765/mcp"),
         mcp_auth_token=os.getenv("MCP_AUTH_TOKEN", ""),
+        mcp_shim_host=os.getenv("MCP_SHIM_HOST", "127.0.0.1"),
+        mcp_shim_port=int(os.getenv("PORT", os.getenv("MCP_SHIM_PORT", "8765"))),
         gcs_bucket=os.getenv("GCS_BUCKET", ""),
         firestore_project=os.getenv("FIRESTORE_PROJECT", ""),
         log_level=os.getenv("LOG_LEVEL", "INFO"),
         api_host=os.getenv("API_HOST", "127.0.0.1"),
-        api_port=int(os.getenv("API_PORT", "8000")),
+        # Cloud Run injects PORT and requires the container to listen on
+        # it; PORT (if set) wins over API_PORT so the same image works
+        # both locally (API_PORT) and on Cloud Run (PORT), unchanged.
+        api_port=int(os.getenv("PORT", os.getenv("API_PORT", "8000"))),
     )
