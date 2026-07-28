@@ -1,13 +1,18 @@
-"""Local dev entrypoint: run the Script Supervisor on a screenplay file.
+"""Local dev entrypoint for the BACKLOT crew.
 
 Usage:
     python run_local.py
-    python run_local.py --screenplay data/screenplays/sample_screenplay.txt --out output/breakdown.json
+        Runs the full Line Producer spine (script -> breakdown -> schedule
+        -> package) and writes output/package.json.
+
+    python run_local.py --stage breakdown
+        Runs only the Script Supervisor and writes output/breakdown.json.
+
+    python run_local.py --screenplay path/to/script.txt --out path/to/out.json
 
 This bypasses Agent Engine entirely and uses ADK's InMemoryRunner + an
 in-memory session, so it works with nothing more than a Gemini credential
-in .env. Later phases add the Line Producer orchestrator on top of this
-same pattern.
+in .env.
 """
 
 from __future__ import annotations
@@ -18,19 +23,18 @@ import json
 import uuid
 from pathlib import Path
 
+from google.adk.agents.base_agent import BaseAgent
 from google.adk.runners import InMemoryRunner
 from google.genai import types
 
 from backlot.agents.script_supervisor import build_script_supervisor
 from backlot.config import DATA_DIR, OUTPUT_DIR, get_settings
-from backlot.schemas import ScriptBreakdown
+from backlot.orchestrator import build_line_producer
+from backlot.schemas import ProductionPackage, ScriptBreakdown
 
 
-async def run_script_supervisor(screenplay_text: str) -> ScriptBreakdown:
+async def _run_agent_and_get_state(agent: BaseAgent, screenplay_text: str, state_key: str) -> dict:
     settings = get_settings()
-    settings.require_llm_credentials()
-
-    agent = build_script_supervisor(settings)
     runner = InMemoryRunner(agent=agent, app_name=settings.app_name)
 
     user_id = "local-dev"
@@ -44,23 +48,44 @@ async def run_script_supervisor(screenplay_text: str) -> ScriptBreakdown:
     async for _event in runner.run_async(
         user_id=user_id, session_id=session_id, new_message=message
     ):
-        pass  # the agent writes its result into session state via output_key
+        pass  # agents write their results into session state via output_key / state_delta
 
     session = await runner.session_service.get_session(
         app_name=settings.app_name, user_id=user_id, session_id=session_id
     )
-    breakdown_data = session.state.get("breakdown") if session else None
-    if breakdown_data is None:
+    data = session.state.get(state_key) if session else None
+    if data is None:
         raise RuntimeError(
-            "Script Supervisor produced no 'breakdown' state. Check the "
-            "model response above for errors."
+            f"Pipeline produced no '{state_key}' state. Check the agent "
+            "output above for errors."
         )
-    return ScriptBreakdown.model_validate(breakdown_data)
+    return data
+
+
+async def run_script_supervisor(screenplay_text: str) -> ScriptBreakdown:
+    settings = get_settings()
+    settings.require_llm_credentials()
+    agent = build_script_supervisor(settings)
+    data = await _run_agent_and_get_state(agent, screenplay_text, "breakdown")
+    return ScriptBreakdown.model_validate(data)
+
+
+async def run_line_producer(screenplay_text: str) -> ProductionPackage:
+    settings = get_settings()
+    settings.require_llm_credentials()
+    agent = build_line_producer(settings)
+    data = await _run_agent_and_get_state(agent, screenplay_text, "package")
+    return ProductionPackage.model_validate(data)
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Run the BACKLOT Script Supervisor on a screenplay."
+    parser = argparse.ArgumentParser(description="Run the BACKLOT crew locally.")
+    parser.add_argument(
+        "--stage",
+        choices=["breakdown", "pipeline"],
+        default="pipeline",
+        help="'breakdown' runs only the Script Supervisor; 'pipeline' (default) "
+        "runs the full Line Producer spine.",
     )
     parser.add_argument(
         "--screenplay",
@@ -71,22 +96,29 @@ def main() -> None:
     parser.add_argument(
         "--out",
         type=Path,
-        default=OUTPUT_DIR / "breakdown.json",
-        help="Where to write the resulting breakdown JSON.",
+        default=None,
+        help="Where to write the result JSON (defaults depend on --stage).",
     )
     args = parser.parse_args()
 
     screenplay_text = args.screenplay.read_text(encoding="utf-8")
-    breakdown = asyncio.run(run_script_supervisor(screenplay_text))
 
-    args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(
-        json.dumps(breakdown.model_dump(), indent=2), encoding="utf-8"
-    )
-
-    print(f"'{breakdown.title}' -> {len(breakdown.scenes)} scenes, "
-          f"{breakdown.total_estimated_pages} estimated pages")
-    print(f"Breakdown written to {args.out}")
+    if args.stage == "breakdown":
+        out = args.out or (OUTPUT_DIR / "breakdown.json")
+        breakdown = asyncio.run(run_script_supervisor(screenplay_text))
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(breakdown.model_dump(), indent=2), encoding="utf-8")
+        print(f"'{breakdown.title}' -> {len(breakdown.scenes)} scenes, "
+              f"{breakdown.total_estimated_pages} estimated pages")
+        print(f"Breakdown written to {out}")
+    else:
+        out = args.out or (OUTPUT_DIR / "package.json")
+        package = asyncio.run(run_line_producer(screenplay_text))
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(package.model_dump(), indent=2), encoding="utf-8")
+        print(f"'{package.title}' -> {len(package.breakdown.scenes)} scenes, "
+              f"{package.schedule.total_shoot_days} shoot day(s)")
+        print(f"Package written to {out}")
 
 
 if __name__ == "__main__":
