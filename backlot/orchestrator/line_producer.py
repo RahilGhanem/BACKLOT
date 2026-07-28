@@ -20,7 +20,9 @@ from google.adk.agents.base_agent import BaseAgent
 from google.adk.agents.invocation_context import InvocationContext
 from google.adk.events import Event
 
+from ..agents.budget import build_budget_agent
 from ..agents.package_assembler import build_package_assembler
+from ..agents.resource import build_resource_agent
 from ..agents.script_supervisor import build_script_supervisor
 from ..agents.scheduler import build_first_ad_scheduler
 from ..config import Settings
@@ -46,12 +48,14 @@ def build_line_producer(
     return LineProducer(
         name="line_producer",
         description=(
-            "Runs the deterministic pre-production spine: screenplay -> "
-            "breakdown -> schedule -> assembled package."
+            "Runs the pre-production crew: screenplay -> breakdown -> "
+            "schedule -> grounded budget & resources -> assembled package."
         ),
         sub_agents=[
             build_script_supervisor(settings),
             build_first_ad_scheduler(max_pages_per_day=max_pages_per_day),
+            build_budget_agent(settings),
+            build_resource_agent(settings),
             build_package_assembler(),
         ],
     )

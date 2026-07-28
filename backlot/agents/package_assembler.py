@@ -13,7 +13,13 @@ from google.adk.agents.invocation_context import InvocationContext
 from google.adk.events import Event, EventActions
 from google.genai import types
 
-from ..schemas import ProductionPackage, Schedule, ScriptBreakdown
+from ..schemas import (
+    BudgetEstimate,
+    ProductionPackage,
+    ResourcePlan,
+    Schedule,
+    ScriptBreakdown,
+)
 
 
 class PackageAssembler(BaseAgent):
@@ -35,13 +41,28 @@ class PackageAssembler(BaseAgent):
 
         breakdown = ScriptBreakdown.model_validate(breakdown_data)
         schedule = Schedule.model_validate(schedule_data)
+
+        # Budget/resources are optional in state: earlier phases (or a
+        # Line Producer configured without the MCP-grounded agents) may
+        # not have produced them yet.
+        budget_data = ctx.session.state.get("budget")
+        resources_data = ctx.session.state.get("resources")
+        budget = BudgetEstimate.model_validate(budget_data) if budget_data else None
+        resources = ResourcePlan.model_validate(resources_data) if resources_data else None
+
         package = ProductionPackage(
-            title=breakdown.title, breakdown=breakdown, schedule=schedule
+            title=breakdown.title,
+            breakdown=breakdown,
+            schedule=schedule,
+            budget=budget,
+            resources=resources,
         )
 
         summary = (
             f"Assembled production package for '{package.title}': "
-            f"{len(breakdown.scenes)} scenes, {schedule.total_shoot_days} shoot days."
+            f"{len(breakdown.scenes)} scenes, {schedule.total_shoot_days} shoot days"
+            + (f", ${budget.total_estimated_cost:,.0f} estimated" if budget else "")
+            + "."
         )
         yield Event(
             invocation_id=ctx.invocation_id,
@@ -55,5 +76,5 @@ class PackageAssembler(BaseAgent):
 def build_package_assembler() -> PackageAssembler:
     return PackageAssembler(
         name="package_assembler",
-        description="Combines breakdown + schedule (+ later: budget, resources, risk) into the final package.",
+        description="Combines breakdown, schedule, budget, and resources (+ later: risk) into the final package.",
     )

@@ -1,9 +1,9 @@
 """Line Producer orchestrator tests.
 
 Construction test always runs (no network). The end-to-end test runs the
-full spine (script -> breakdown -> schedule -> package) against a real
-Gemini call and is skipped automatically without credentials, same as
-test_script_supervisor.py.
+full crew (script -> breakdown -> schedule -> grounded budget/resources ->
+package) against a real Gemini call and the auto-started MCP shim; skipped
+automatically without credentials, same as test_script_supervisor.py.
 """
 
 import pytest
@@ -13,13 +13,19 @@ from backlot.orchestrator import build_line_producer
 from backlot.schemas import ProductionPackage
 
 
-def test_build_line_producer_wires_the_deterministic_spine():
+def test_build_line_producer_wires_the_full_crew():
     settings = get_settings()
     line_producer = build_line_producer(settings)
 
     assert line_producer.name == "line_producer"
     sub_names = [a.name for a in line_producer.sub_agents]
-    assert sub_names == ["script_supervisor", "first_ad_scheduler", "package_assembler"]
+    assert sub_names == [
+        "script_supervisor",
+        "first_ad_scheduler",
+        "budget_agent",
+        "resource_agent",
+        "package_assembler",
+    ]
 
 
 def _has_llm_credentials() -> bool:
@@ -36,7 +42,7 @@ def _has_llm_credentials() -> bool:
     reason="No Gemini credentials in .env — skipping live pipeline run.",
 )
 @pytest.mark.asyncio
-async def test_pipeline_produces_a_scheduled_package():
+async def test_pipeline_produces_a_grounded_scheduled_package(mcp_shim_process):
     from run_local import run_line_producer
 
     screenplay_path = DATA_DIR / "screenplays" / "sample_screenplay.txt"
@@ -50,3 +56,6 @@ async def test_pipeline_produces_a_scheduled_package():
     scheduled = {n for day in package.schedule.days for n in day.scene_numbers}
     expected = {s.scene_number for s in package.breakdown.scenes}
     assert scheduled == expected
+
+    assert package.budget is not None
+    assert package.resources is not None

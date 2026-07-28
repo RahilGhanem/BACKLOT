@@ -8,9 +8,9 @@ Drop in a screenplay. A network of specialised agents — orchestrated with
 Google's Agent Development Kit (ADK) — returns a complete, shootable
 production package: a scene-by-scene breakdown, an optimised shooting
 schedule, a budget grounded in a studio's own historical data (via an IBM
-MCP server), a ranked risk report, and (later) generative previz. Every
-budget/resource number the crew produces is grounded and cites its source —
-never invented by the model.
+MCP server), real crew/location picks, a ranked risk report, and (later)
+generative previz. Every budget/resource number the crew produces is
+grounded and cites its source — never invented by the model.
 
 ## Status
 
@@ -19,9 +19,10 @@ before the next one starts.
 
 - [x] **Phase 0** — scaffold, license, sample data
 - [x] **Phase 1** — Script Supervisor: screenplay → structured breakdown JSON
-- [ ] **Phase 2** — Line Producer orchestrator + 1st-AD Scheduler (the
+- [x] **Phase 2** — Line Producer orchestrator + 1st-AD Scheduler (the
       end-to-end spine: script → breakdown → schedule)
-- [ ] **Phase 3** — IBM MCP grounding (Budget + Resource agents)
+- [x] **Phase 3** — IBM MCP grounding (Budget + Resource agents, via a local
+      synthetic mcp_shim server)
 - [ ] **Phase 4** — Risk/Continuity agent, human approval gate, governance
 - [ ] **Phase 5** — FastAPI + web UI, live agent-activity panel, metrics
 - [ ] **Phase 6** — Previz (Imagen storyboards, Veo animatic, Lyria cue)
@@ -46,12 +47,13 @@ what this project closes.
    ▼
  FRONTEND (FastAPI + minimal web UI)
    ▼
- LINE PRODUCER (orchestrator, ADK SequentialAgent)
+ LINE PRODUCER (custom ADK orchestrator — see note below)
    ├─ Script Supervisor   (screenplay → breakdown JSON)          [Phase 1 ✅]
-   ├─ 1st-AD Scheduler    (breakdown → stripboard schedule)       [Phase 2]
-   ├─ Budget Agent        (grounded via IBM MCP)                  [Phase 3]
-   ├─ Resource Agent      (grounded via IBM MCP)                  [Phase 3]
+   ├─ 1st-AD Scheduler    (breakdown → stripboard schedule)       [Phase 2 ✅]
+   ├─ Budget Agent        (grounded via IBM MCP)                  [Phase 3 ✅]
+   ├─ Resource Agent      (grounded via IBM MCP)                  [Phase 3 ✅]
    ├─ Risk/Continuity     (critique + bounded reflection loop)     [Phase 4]
+   ├─ Package Assembler   (combines everything above)              [Phase 2 ✅]
    └─ Previz Agent        (Imagen / Veo 3.1 / Lyria 3)              [Phase 6]
    │
    ▼
@@ -65,23 +67,31 @@ schedule, the budget) rather than raw transcripts or the full screenplay —
 this is the token-efficiency story: only the Script Supervisor ever reads
 the whole script.
 
+**On "ADK orchestrator":** the installed ADK version (2.5.0) deprecates
+`SequentialAgent` in favor of a newer, graph-based `Workflow` primitive that
+isn't yet usable as a plain `BaseAgent` (it can't be handed to `Runner`).
+Rather than build on a deprecated class or an early-stage API, the Line
+Producer is a small custom `BaseAgent` that runs its sub-agents in order —
+see `backlot/orchestrator/line_producer.py` for the reasoning.
+
 ## Repo structure
 
 ```
 backlot/
-  config.py            # the only place that reads os.getenv — see .env.example
-  schemas/              # pydantic contracts agents hand off between each other
-  agents/               # one LlmAgent factory per specialist
-  orchestrator/          # Line Producer (Phase 2+)
-  tools/                 # custom tools, e.g. the scheduling solver (Phase 2+)
-  mcp_shim/               # local synthetic MCP server (Phase 3+)
+  config.py             # the only place that reads os.getenv — see .env.example
+  schemas/               # pydantic contracts agents hand off between each other
+  agents/                 # one LlmAgent (or custom BaseAgent) factory per specialist
+  orchestrator/            # Line Producer
+  tools/                    # custom tools, e.g. the scheduling solver
+  mcp_shim/                  # local synthetic MCP server (Phase 3)
 data/
-  screenplays/            # sample screenplay(s) used for local dev/tests
-  studio_dataset/          # synthetic historical costs, rates, crew, locations,
-                            # past schedules — served by mcp_shim in Phase 3
-tests/                     # pytest; schema tests always run, live-model tests
-                            # skip automatically without credentials
-run_local.py                # CLI entrypoint for local, in-memory runs
+  screenplays/                # sample screenplay(s) used for local dev/tests
+  studio_dataset/               # synthetic historical costs, rates, crew, locations,
+                                 # past schedules — served by mcp_shim
+tests/                          # pytest; schema/solver/shim tests always run,
+                                 # live-model tests skip automatically without
+                                 # credentials (see Testing below)
+run_local.py                     # CLI entrypoint for local, in-memory runs
 ```
 
 ## Setup
@@ -111,14 +121,25 @@ new setting.
 
 ## Running it
 
+The Budget and Resource agents need the MCP server reachable. Start the
+local synthetic one in one terminal:
+
+```bash
+python -m backlot.mcp_shim.server
+```
+
+Then, in another terminal, run the crew:
+
 ```bash
 python run_local.py
 ```
 
-This parses `data/screenplays/sample_screenplay.txt` with the Script
-Supervisor agent and writes the resulting breakdown to
-`output/breakdown.json`. Pass `--screenplay` / `--out` to use a different
-file.
+This parses `data/screenplays/sample_screenplay.txt` through the full crew
+(breakdown → schedule → grounded budget → grounded resources → assembled
+package) and writes `output/package.json`. Use `--stage breakdown` to run
+only the Script Supervisor (no MCP server needed) and write
+`output/breakdown.json` instead. Pass `--screenplay` / `--out` for a
+different input/output path.
 
 ## Testing
 
@@ -126,20 +147,23 @@ file.
 pytest -v
 ```
 
-Schema and agent-configuration tests run with no credentials and no network
-access. The one end-to-end test that actually calls Gemini
-(`test_script_supervisor_breaks_down_sample_screenplay`) is skipped
-automatically if `.env` has no Gemini credentials configured, and runs (and
-must pass) once you add one.
+- Schema, scheduler-solver, mcp_shim, and agent-configuration tests run
+  with no credentials and no manually-started server.
+- Tests that need the MCP server (Budget/Resource/full-pipeline) auto-start
+  `mcp_shim` as a subprocess via the `mcp_shim_process` fixture in
+  `tests/conftest.py` — nothing to run by hand for `pytest`.
+- Tests that actually call Gemini are skipped automatically if `.env` has
+  no Gemini credentials configured, and must pass once you add one.
 
 ## Data note
 
 Everything under `data/studio_dataset/` is **synthetic** — fabricated
 numbers for demo and development, clearly marked with a `"_synthetic": true`
-flag in each file. It exists to exercise the IBM MCP grounding path (Phase 3)
-without needing a live IBM connection during development; pointing at the
-real IBM watsonx.data remote MCP server in production is a `.env` change
-(`MCP_SERVER_URL`, `MCP_AUTH_TOKEN`), not a code change.
+flag in each file. It exists to exercise the IBM MCP grounding path without
+needing a live IBM connection during development; pointing at the real IBM
+watsonx.data remote MCP server in production is a `.env` change
+(`MCP_SERVER_URL`, `MCP_AUTH_TOKEN`), not a code change — see
+`backlot/mcp_shim/` for the tool interface the real server needs to match.
 
 ## License
 
