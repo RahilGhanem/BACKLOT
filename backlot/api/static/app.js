@@ -33,10 +33,11 @@ runBtn.addEventListener("click", async () => {
   runBtn.disabled = true;
   runStatusEl.textContent = "Starting the crew...";
 
+  const withPreviz = document.getElementById("with-previz").checked;
   const res = await fetch("/api/runs", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ screenplay }),
+    body: JSON.stringify({ screenplay, with_previz: withPreviz }),
   });
   if (!res.ok) {
     runStatusEl.textContent = "Failed to start run.";
@@ -183,6 +184,24 @@ function renderResults(pkg) {
     html += `<div class="section-title">Approval</div><p>${badge} ${escapeHtml(pkg.approval.reason)}</p>`;
   }
 
+  if (pkg.previz) {
+    html += `<div class="section-title">Previz — scene ${escapeHtml(pkg.previz.scene_number)}</div>`;
+    html += `<div class="previz-gallery">`;
+    for (const p of pkg.previz.storyboard_paths) {
+      html += `<img src="${previzUrl(p)}" alt="storyboard" />`;
+    }
+    if (pkg.previz.animatic_path && !pkg.previz.animatic_path.endsWith(".uri.txt")) {
+      html += `<video controls src="${previzUrl(pkg.previz.animatic_path)}"></video>`;
+    }
+    if (pkg.previz.music_cue_path) {
+      html += `<audio controls src="${previzUrl(pkg.previz.music_cue_path)}"></audio>`;
+    }
+    html += `</div>`;
+    for (const w of pkg.previz.warnings || []) {
+      html += `<p class="previz-warning">${escapeHtml(w)}</p>`;
+    }
+  }
+
   if (pkg.resources) {
     html += `<div class="section-title">Resources</div>`;
     html += `<table><tr><th>Need</th><th>Recommendation</th><th>Grounded</th></tr>`;
@@ -222,6 +241,14 @@ function renderMetrics(metrics) {
 function formatPct(value) {
   if (value === null || value === undefined) return "—";
   return `${Math.round(value * 100)}%`;
+}
+
+function previzUrl(serverPath) {
+  // PrevizAsset stores server-local paths; the API also serves
+  // output/previz/<run_id>/<filename> at /previz/<run_id>/<filename>, so
+  // only the filename needs to survive the trip to the browser.
+  const filename = serverPath.split(/[\\/]/).pop();
+  return `/previz/${currentRunId}/${filename}`;
 }
 
 function escapeHtml(str) {

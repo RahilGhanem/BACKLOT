@@ -16,6 +16,7 @@ from google.genai import types
 from ..schemas import (
     ApprovalDecision,
     BudgetEstimate,
+    PrevizAsset,
     ProductionPackage,
     ResourcePlan,
     RiskReport,
@@ -52,11 +53,13 @@ class PackageAssembler(BaseAgent):
         risk_data = ctx.session.state.get("risk_report")
         approval_data = ctx.session.state.get("approval")
         resources_data = ctx.session.state.get("resources")
+        previz_data = ctx.session.state.get("previz")
 
         budget = BudgetEstimate.model_validate(budget_data) if budget_data else None
         risk_report = RiskReport.model_validate(risk_data) if risk_data else None
         approval = ApprovalDecision.model_validate(approval_data) if approval_data else None
         resources = ResourcePlan.model_validate(resources_data) if resources_data else None
+        previz = PrevizAsset.model_validate(previz_data) if previz_data else None
 
         package = ProductionPackage(
             title=breakdown.title,
@@ -66,6 +69,7 @@ class PackageAssembler(BaseAgent):
             risk_report=risk_report,
             approval=approval,
             resources=resources,
+            previz=previz,
         )
 
         summary = (

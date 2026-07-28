@@ -88,6 +88,20 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .status { color: var(--muted); font-size: 0.85rem; min-height: 1.2em; }
 
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.6rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.previz-gallery { display: flex; flex-wrap: wrap; gap: 0.6rem; margin: 0.5rem 0 1rem; }
+.previz-gallery img { max-width: 220px; border-radius: 6px; border: 1px solid var(--border); }
+.previz-gallery video, .previz-gallery audio { max-width: 320px; }
+.previz-warning { color: var(--warn); font-size: 0.8rem; margin: 0.2rem 0; }
+
 .activity-log {
   list-style: none;
   margin: 0;

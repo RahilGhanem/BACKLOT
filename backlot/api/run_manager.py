@@ -72,7 +72,7 @@ def _make_http_decider(state: RunState):
     return _decider
 
 
-async def _execute(state: RunState, screenplay_text: str) -> None:
+async def _execute(state: RunState, screenplay_text: str, with_previz: bool) -> None:
     settings = get_settings()
     try:
         settings.require_llm_credentials()
@@ -81,7 +81,9 @@ async def _execute(state: RunState, screenplay_text: str) -> None:
         state.error = str(exc)
         return
 
-    agent = build_line_producer(settings, approval_decider=_make_http_decider(state))
+    agent = build_line_producer(
+        settings, approval_decider=_make_http_decider(state), include_previz=with_previz
+    )
     runner = InMemoryRunner(agent=agent, app_name=settings.app_name)
     user_id = "web-user"
     await runner.session_service.create_session(
@@ -117,9 +119,9 @@ async def _execute(state: RunState, screenplay_text: str) -> None:
     state.status = "completed" if approval.get("approved") else "rejected"
 
 
-def start_run(screenplay_text: str) -> RunState:
+def start_run(screenplay_text: str, with_previz: bool = False) -> RunState:
     run_id = str(uuid.uuid4())
     state = RunState(run_id=run_id)
     _RUNS[run_id] = state
-    asyncio.create_task(_execute(state, screenplay_text))
+    asyncio.create_task(_execute(state, screenplay_text, with_previz))
     return state

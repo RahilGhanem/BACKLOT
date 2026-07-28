@@ -14,16 +14,19 @@ from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from ..config import DATA_DIR
+from ..config import DATA_DIR, OUTPUT_DIR
 from .run_manager import get_run, start_run
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
+PREVIZ_DIR = OUTPUT_DIR / "previz"
+PREVIZ_DIR.mkdir(parents=True, exist_ok=True)  # StaticFiles requires the dir to exist at mount time
 
 app = FastAPI(title="BACKLOT")
 
 
 class StartRunRequest(BaseModel):
     screenplay: str
+    with_previz: bool = False
 
 
 class ApprovalRequest(BaseModel):
@@ -41,7 +44,7 @@ def sample_screenplay() -> dict:
 def create_run(req: StartRunRequest) -> dict:
     if not req.screenplay.strip():
         raise HTTPException(400, "screenplay text is required")
-    state = start_run(req.screenplay)
+    state = start_run(req.screenplay, with_previz=req.with_previz)
     return {"run_id": state.run_id, "status": state.status}
 
 
@@ -71,6 +74,17 @@ def approve_run(run_id: str, req: ApprovalRequest) -> dict:
     state.resolve_approval(req.approved, req.reason or default_reason)
     return {"ok": True}
 
+
+@app.get("/api/health")
+def health() -> dict:
+    return {"ok": True}
+
+
+# Serves generated storyboards/animatics so the UI can render them by URL
+# (paths in PrevizAsset are server-local; this exposes them at
+# /previz/<run_id>/<filename>). Registered before the catch-all static
+# mount below.
+app.mount("/previz", StaticFiles(directory=str(PREVIZ_DIR)), name="previz")
 
 # Registered last: falls through to serving the static UI (index.html at
 # "/") for anything the /api routes above didn't already match.

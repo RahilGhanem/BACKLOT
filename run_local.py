@@ -72,12 +72,12 @@ async def run_script_supervisor(screenplay_text: str) -> ScriptBreakdown:
 
 
 async def run_line_producer(
-    screenplay_text: str, auto_approve: bool = False
+    screenplay_text: str, auto_approve: bool = False, with_previz: bool = False
 ) -> ProductionPackage:
     settings = get_settings()
     settings.require_llm_credentials()
     decider = auto_approve_decider if auto_approve else cli_approval_decider
-    agent = build_line_producer(settings, approval_decider=decider)
+    agent = build_line_producer(settings, approval_decider=decider, include_previz=with_previz)
     data = await _run_agent_and_get_state(agent, screenplay_text, "package")
     return ProductionPackage.model_validate(data)
 
@@ -109,6 +109,13 @@ def main() -> None:
         help="Skip the interactive approval prompt and auto-approve the "
         "budget band (non-interactive runs, CI, demos).",
     )
+    parser.add_argument(
+        "--with-previz",
+        action="store_true",
+        help="Also generate a storyboard/animatic/music cue for the opening "
+        "scene (Phase 6, opt-in — real Vertex AI Imagen/Veo cost and time, "
+        "a Veo clip can take minutes; Lyria is best-effort).",
+    )
     args = parser.parse_args()
 
     screenplay_text = args.screenplay.read_text(encoding="utf-8")
@@ -123,7 +130,11 @@ def main() -> None:
         print(f"Breakdown written to {out}")
     else:
         out = args.out or (OUTPUT_DIR / "package.json")
-        package = asyncio.run(run_line_producer(screenplay_text, auto_approve=args.auto_approve))
+        package = asyncio.run(
+            run_line_producer(
+                screenplay_text, auto_approve=args.auto_approve, with_previz=args.with_previz
+            )
+        )
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(json.dumps(package.model_dump(), indent=2), encoding="utf-8")
         print(f"'{package.title}' -> {len(package.breakdown.scenes)} scenes, "
@@ -131,6 +142,12 @@ def main() -> None:
         if package.approval:
             print(f"Approval: {'approved' if package.approval.approved else 'rejected'} "
                   f"({package.approval.reason})")
+        if package.previz:
+            print(f"Previz: {len(package.previz.storyboard_paths)} storyboard(s), "
+                  f"animatic={'yes' if package.previz.animatic_path else 'no'}, "
+                  f"music={'yes' if package.previz.music_cue_path else 'no'}")
+            for warning in package.previz.warnings:
+                print(f"  warning: {warning}")
         print(f"Package written to {out}")
 
 

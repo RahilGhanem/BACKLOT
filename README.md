@@ -26,7 +26,8 @@ before the next one starts.
 - [x] **Phase 4** — Risk/Continuity agent (bounded re-plan loop), human
       approval gate, scoped tool permissions
 - [x] **Phase 5** — FastAPI + web UI, live agent-activity panel, metrics
-- [ ] **Phase 6** — Previz (Imagen storyboards, Veo animatic, Lyria cue)
+- [x] **Phase 6** — Previz (Imagen storyboards, Veo animatic, Lyria cue) —
+      opt-in, see caveat below
 - [ ] **Phase 7** — Deploy to Agent Engine + Cloud Run; point MCP client at
       the real IBM watsonx.data server
 
@@ -50,6 +51,9 @@ what this project closes.
    ▼
  LINE PRODUCER (custom ADK orchestrator — see note below)
    ├─ Script Supervisor   (screenplay → breakdown JSON)          [Phase 1 ✅]
+   ├─ Previz Agent        (opt-in: Imagen/Veo/Lyria for the       [Phase 6 ✅]
+   │                       opening scene, runs as soon as the
+   │                       breakdown exists)
    │                                                    ┌──── bounded
    ├─ 1st-AD Scheduler    (breakdown → stripboard sched)│     re-plan loop
    ├─ Budget Agent        (grounded via IBM MCP)        │     (max 2 retries,
@@ -57,8 +61,7 @@ what this project closes.
    ├─ Approval Gate       (producer approves the budget band)  [Phase 4 ✅]
    ├─ Resource Agent      (grounded via IBM MCP; skipped if     [Phase 3 ✅]
    │                       the budget was rejected)
-   ├─ Package Assembler   (combines everything above)          [Phase 2 ✅]
-   └─ Previz Agent        (Imagen / Veo 3.1 / Lyria 3)          [Phase 6]
+   └─ Package Assembler   (combines everything above)          [Phase 2 ✅]
    │
    ▼
  IBM MCP SERVER (mcp_shim locally with synthetic data; real
@@ -99,6 +102,19 @@ custom `BaseAgent` — see `backlot/orchestrator/line_producer.py`.
   function-response content blocks in the Gemini API, not concatenated
   into the prompt as free text.
 
+**On Previz (Phase 6), concretely:** it's opt-in (`--with-previz` /
+the UI checkbox) because it costs real money and a Veo clip can take
+minutes — nothing in the default pipeline or test suite triggers it.
+Imagen (`generate_images`) and Veo (`generate_videos`, a long-running
+operation, polled via `client.operations.get`) are called through the
+verified, stable `google-genai` `client.models` surface. Lyria, in the
+installed SDK, only exists behind a much newer, separate "Interactions"
+API (`client.interactions`) that could not be exercised against a live
+billed call in this environment; `backlot/tools/previz_generation.py`
+makes a best-effort call against it and degrades gracefully (storyboards/
+animatic still complete, a warning is recorded) if it fails — verify that
+call against current docs before a live demo.
+
 ## Repo structure
 
 ```
@@ -107,13 +123,13 @@ backlot/
   schemas/               # pydantic contracts agents hand off between each other
   agents/                 # one LlmAgent (or custom BaseAgent) factory per specialist
   orchestrator/            # Line Producer
-  tools/                    # custom tools, e.g. the scheduling solver
+  tools/                    # custom tools: the scheduling solver, previz_generation.py
   mcp_shim/                  # local synthetic MCP server (Phase 3)
-  metrics.py                 # evaluation scorecard, computed from the ADK event log
-  api/                        # FastAPI backend + static web UI (Phase 5)
-    run_manager.py             # tracks background runs, relays HTTP approvals
-    app.py                      # routes
-    static/                       # plain HTML/CSS/JS, no build step
+  metrics.py                  # evaluation scorecard, computed from the ADK event log
+  api/                         # FastAPI backend + static web UI (Phase 5)
+    run_manager.py              # tracks background runs, relays HTTP approvals
+    app.py                       # routes
+    static/                        # plain HTML/CSS/JS, no build step
 data/
   screenplays/                # sample screenplay(s) used for local dev/tests
   studio_dataset/               # synthetic historical costs, rates, crew, locations,
@@ -174,7 +190,10 @@ anything else to see the package with `resources: null`. Pass
 `--auto-approve` to skip the prompt and always approve (useful for demos
 and CI). Use `--stage breakdown` to run only the Script Supervisor (no MCP
 server needed) and write `output/breakdown.json` instead. Pass
-`--screenplay` / `--out` for a different input/output path.
+`--screenplay` / `--out` for a different input/output path. Add
+`--with-previz` to also generate a storyboard/animatic/music cue for the
+opening scene (real Vertex AI Imagen/Veo cost and time; see the Previz
+caveat above) — written under `output/previz/<run-id>/`.
 
 ### Web UI
 
@@ -191,7 +210,8 @@ page — this is the same human-in-the-loop gate `run_local.py` shows on the
 CLI, just relayed over HTTP instead of blocking on stdin (see
 `backlot/api/run_manager.py`). The finished package (schedule, grounded
 budget with provenance badges, risk flags, resources) and the evaluation
-scorecard render below once the run completes.
+scorecard render below once the run completes. Check "Also generate
+previz" before running to include the storyboard/animatic/music cue.
 
 ## Testing
 
@@ -207,6 +227,10 @@ pytest -v
   `tests/conftest.py` — nothing to run by hand for `pytest`.
 - Tests that actually call Gemini are skipped automatically if `.env` has
   no Gemini credentials configured, and must pass once you add one.
+- The one test that would actually call Imagen/Veo (real money) needs a
+  *second*, explicit opt-in beyond credentials: `RUN_PREVIZ_LIVE_TESTS=1`.
+  Nothing else in the suite sets this, so a routine `pytest -v` never
+  triggers billed generative-media calls.
 
 ## Data note
 
