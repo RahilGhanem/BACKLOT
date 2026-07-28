@@ -32,6 +32,7 @@ class RunState:
     created_at: float = field(default_factory=time.time)
     approval_event: asyncio.Event = field(default_factory=asyncio.Event)
     approval_result: tuple[bool, str] | None = None
+    pending_budget: dict | None = None  # so the UI can show real line items at the gate
 
     def resolve_approval(self, approved: bool, reason: str) -> None:
         self.approval_result = (approved, reason)
@@ -63,6 +64,7 @@ def _summarize_event(event: Event) -> dict:
 def _make_http_decider(state: RunState):
     async def _decider(budget: dict) -> tuple[bool, str]:
         state.status = "awaiting_approval"
+        state.pending_budget = budget
         state.approval_event.clear()
         await state.approval_event.wait()
         state.status = "running"

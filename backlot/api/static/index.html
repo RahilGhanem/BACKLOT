@@ -7,50 +7,98 @@
 <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
+
+<div class="scene-glow" aria-hidden="true"></div>
+
 <header class="topbar">
-  <h1>BACKLOT</h1>
-  <p>an autonomous pre-production crew</p>
+  <div class="topbar-inner">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M3 8.5 20 5l1 4-17 3.5Z" fill="currentColor" opacity=".9"/><rect x="3" y="10" width="18" height="10" rx="1.5" fill="currentColor"/><path d="m6 8 3-3M11 7l3-3M16 6l3-3" stroke="#14121a" stroke-width="1.4"/></svg>
+      </span>
+      <div class="brand-text">
+        <h1>BACKLOT</h1>
+        <p>an autonomous pre-production crew</p>
+      </div>
+    </div>
+    <ol class="stepper" id="stepper">
+      <li data-step="input" class="is-current">Screenplay</li>
+      <li data-step="crew">Crew at work</li>
+      <li data-step="approval">Approval</li>
+      <li data-step="done">Package</li>
+    </ol>
+  </div>
 </header>
 
 <main class="layout">
-  <section class="panel input-panel">
-    <h2>1. Screenplay</h2>
-    <textarea id="screenplay" placeholder="Paste a screenplay, or load the sample..."></textarea>
-    <div class="row">
-      <button id="load-sample">Load sample</button>
-      <button id="run" class="primary">Run the crew</button>
+
+  <section class="panel input-panel" id="input-panel">
+    <div class="panel-head">
+      <h2><svg viewBox="0 0 24 24" class="icon"><path d="M6 3h9l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"/><path d="M15 3v4h4" stroke-linejoin="round"/><path d="M8 12h8M8 15.5h8M8 8.5h4"/></svg> Screenplay</h2>
+      <span class="hint">plain text · standard scene headings</span>
     </div>
-    <label class="checkbox-row">
-      <input type="checkbox" id="with-previz" />
-      Also generate previz (Imagen/Veo/Lyria) &mdash; costs real money, a Veo clip can take minutes
-    </label>
-    <p id="run-status" class="status"></p>
-  </section>
-
-  <section class="panel activity-panel">
-    <h2>2. Agent activity</h2>
-    <ol id="activity-log" class="activity-log"></ol>
-  </section>
-
-  <section class="panel approval-panel hidden" id="approval-panel">
-    <h2>3. Approve the budget</h2>
-    <div id="approval-summary"></div>
-    <div class="row">
-      <button id="approve-yes" class="primary">Approve</button>
-      <button id="approve-no">Reject</button>
+    <textarea id="screenplay" placeholder="Paste a screenplay here, or load the sample to see BACKLOT work end to end..."></textarea>
+    <div class="controls-row">
+      <label class="checkbox-row">
+        <input type="checkbox" id="with-previz" />
+        <span>Generate previz <em>(Imagen / Veo / Lyria — real cost, a Veo clip can take minutes)</em></span>
+      </label>
+      <div class="row">
+        <button id="load-sample" class="ghost">Load sample</button>
+        <button id="run" class="primary">
+          <svg viewBox="0 0 24 24" class="icon"><path d="M7 5v14l11-7Z"/></svg>
+          Run the crew
+        </button>
+      </div>
     </div>
+    <p id="run-status" class="status" role="status"></p>
   </section>
 
-  <section class="panel results-panel hidden" id="results-panel">
-    <h2>4. Production package</h2>
-    <div id="results"></div>
+  <section class="panel crew-panel hidden" id="crew-panel">
+    <div class="panel-head">
+      <h2><svg viewBox="0 0 24 24" class="icon"><circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20v-1a5 5 0 0 1 5-5h0a5 5 0 0 1 5 5v1"/><path d="M14.5 14.2A4 4 0 0 1 21 17.3V19"/></svg> The crew</h2>
+      <button id="toggle-log" class="link-btn" aria-expanded="false">Show detailed log ▾</button>
+    </div>
+    <ol class="crew-track" id="crew-track"></ol>
+    <ol class="activity-log hidden" id="activity-log"></ol>
   </section>
 
-  <section class="panel metrics-panel hidden" id="metrics-panel">
-    <h2>Scorecard</h2>
-    <div id="metrics"></div>
+  <section class="results-panel hidden" id="results-panel">
+    <section class="panel">
+      <div class="panel-head">
+        <h2><svg viewBox="0 0 24 24" class="icon"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 3v3M16 3v3"/></svg> Production package</h2>
+        <div class="row">
+          <button id="download-json" class="ghost small">Download JSON</button>
+        </div>
+      </div>
+      <div class="tabs" id="result-tabs" role="tablist"></div>
+      <div id="tab-panels"></div>
+    </section>
+
+    <section class="panel metrics-panel">
+      <div class="panel-head">
+        <h2><svg viewBox="0 0 24 24" class="icon"><path d="M4 20V10M11 20V4M18 20v-7"/></svg> Scorecard</h2>
+      </div>
+      <div id="metrics"></div>
+    </section>
   </section>
+
 </main>
+
+<div class="modal-backdrop hidden" id="approval-backdrop">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="approval-title">
+    <div class="modal-head">
+      <svg viewBox="0 0 24 24" class="icon icon-lg"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9.5"/></svg>
+      <h2 id="approval-title">Approve the budget band</h2>
+    </div>
+    <p class="modal-sub">The Budget and Risk agents have finished. Review the grounded line items below, then approve to let the Resource Agent propose crew and locations — or reject to stop here.</p>
+    <div id="approval-budget"></div>
+    <div class="row modal-actions">
+      <button id="approve-no" class="ghost">Reject</button>
+      <button id="approve-yes" class="primary">Approve budget</button>
+    </div>
+  </div>
+</div>
 
 <script src="/app.js"></script>
 </body>

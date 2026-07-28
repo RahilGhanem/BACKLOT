@@ -76,6 +76,10 @@ def test_full_run_via_http_including_approval_relay(mcp_shim_process):
             time.sleep(1)
         assert status == "awaiting_approval", f"expected awaiting_approval, got {status}"
 
+        pending = client.get(f"/api/runs/{run_id}").json()["pending_budget"]
+        assert pending is not None
+        assert pending["line_items"], "expected the real budget line items at the approval gate"
+
         approved = client.post(f"/api/runs/{run_id}/approve", json={"approved": True})
         assert approved.status_code == 200
 

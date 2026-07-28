@@ -211,14 +211,20 @@ python run_server.py
 ```
 
 Open `http://127.0.0.1:8000`. Load the sample screenplay (or paste your
-own), click **Run the crew**, and watch the live agent-activity panel. When
-the run reaches the approval gate, an Approve/Reject section appears in the
-page — this is the same human-in-the-loop gate `run_local.py` shows on the
-CLI, just relayed over HTTP instead of blocking on stdin (see
-`backlot/api/run_manager.py`). The finished package (schedule, grounded
-budget with provenance badges, risk flags, resources) and the evaluation
-scorecard render below once the run completes. Check "Also generate
-previz" before running to include the storyboard/animatic/music cue.
+own), click **Run the crew**, and watch each crew member light up live —
+Script Supervisor → Scheduler → Budget → Risk → Approval Gate → Resource →
+Package Assembler — as pending / working / done, with a re-plan badge if
+the bounded reflection loop fires (a "show detailed log" toggle reveals
+the raw per-event feed underneath). When the run reaches the approval
+gate, a modal shows the actual grounded budget line items — not a
+placeholder — before you approve or reject; this is the same
+human-in-the-loop gate `run_local.py` shows on the CLI, just relayed over
+HTTP instead of blocking on stdin (see `backlot/api/run_manager.py`). The
+finished package renders as tabs (Breakdown / Schedule / Budget / Risk /
+Resources / Previz) with provenance badges on every grounded claim, a
+one-click JSON download, and the evaluation scorecard alongside. Check
+"Generate previz" before running to include the storyboard/animatic/music
+cue tab.
 
 ## Testing
 

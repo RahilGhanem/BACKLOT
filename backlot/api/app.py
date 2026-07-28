@@ -60,6 +60,7 @@ def read_run(run_id: str) -> dict:
         "package": state.package,
         "metrics": state.metrics,
         "error": state.error,
+        "pending_budget": state.pending_budget,
     }
 
 
