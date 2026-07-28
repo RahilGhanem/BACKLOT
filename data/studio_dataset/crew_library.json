@@ -1,0 +1,18 @@
+{
+  "_synthetic": true,
+  "_disclaimer": "Fabricated crew roster for demo/dev purposes only. Not real people.",
+  "currency": "USD",
+  "unit": "day_rate",
+  "records": [
+    { "crew_id": "CR-101", "name": "J. Alvarez", "role": "Gaffer", "region": "US-West", "day_rate": 950, "union": "IATSE Local 728", "available_from": "2026-08-01", "available_to": "2026-10-31" },
+    { "crew_id": "CR-102", "name": "K. Okafor", "role": "Key Grip", "region": "US-West", "day_rate": 900, "union": "IATSE Local 80", "available_from": "2026-08-01", "available_to": "2026-09-30" },
+    { "crew_id": "CR-103", "name": "R. Chen", "role": "1st AC", "region": "US-West", "day_rate": 750, "union": "IATSE Local 600", "available_from": "2026-07-15", "available_to": "2026-11-30" },
+    { "crew_id": "CR-104", "name": "T. Boone", "role": "Sound Mixer", "region": "US-West", "day_rate": 800, "union": "IATSE Local 695", "available_from": "2026-08-10", "available_to": "2026-10-15" },
+    { "crew_id": "CR-105", "name": "M. Farrow", "role": "Location Manager", "region": "US-West", "day_rate": 700, "union": "non-union", "available_from": "2026-07-28", "available_to": "2026-12-31" },
+    { "crew_id": "CR-106", "name": "D. Whitlock", "role": "Stunt Coordinator", "region": "US-West", "day_rate": 1400, "union": "SAG-AFTRA", "available_from": "2026-08-15", "available_to": "2026-09-15" },
+    { "crew_id": "CR-107", "name": "P. Nakashima", "role": "1st AD", "region": "US-West", "day_rate": 1100, "union": "DGA", "available_from": "2026-08-01", "available_to": "2026-10-31" },
+    { "crew_id": "CR-108", "name": "S. Delacroix", "role": "Gaffer", "region": "US-East", "day_rate": 880, "union": "IATSE Local 52", "available_from": "2026-08-01", "available_to": "2026-11-15" },
+    { "crew_id": "CR-109", "name": "A. Novak", "role": "Key Grip", "region": "US-East", "day_rate": 850, "union": "IATSE Local 52", "available_from": "2026-08-01", "available_to": "2026-10-01" },
+    { "crew_id": "CR-110", "name": "L. Ibarra", "role": "Location Manager", "region": "US-East", "day_rate": 680, "union": "non-union", "available_from": "2026-07-28", "available_to": "2026-12-31" }
+  ]
+}

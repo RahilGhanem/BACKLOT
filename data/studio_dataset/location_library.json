@@ -1,0 +1,14 @@
+{
+  "_synthetic": true,
+  "_disclaimer": "Fabricated location library for demo/dev purposes only. Not real bookable properties.",
+  "currency": "USD",
+  "unit": "permit_cost_per_day",
+  "records": [
+    { "location_id": "LOC-01", "name": "Fernwood Industrial Lot", "type": "industrial_lot", "region": "US-West", "permit_cost_per_day": 2200, "supports_night_shoot": true, "power_access": true, "available_from": "2026-08-01", "available_to": "2026-11-30" },
+    { "location_id": "LOC-02", "name": "Pier 9 Loading Dock", "type": "warehouse_dock", "region": "US-West", "permit_cost_per_day": 2600, "supports_night_shoot": true, "power_access": true, "available_from": "2026-08-01", "available_to": "2026-10-15" },
+    { "location_id": "LOC-03", "name": "Route 14 Overpass Stretch", "type": "highway_stretch", "region": "US-West", "permit_cost_per_day": 5200, "supports_night_shoot": true, "power_access": false, "available_from": "2026-08-15", "available_to": "2026-09-30", "notes": "Requires county traffic control permit, 14-day lead time." },
+    { "location_id": "LOC-04", "name": "Delgado's Auto Garage", "type": "auto_garage", "region": "US-West", "permit_cost_per_day": 1400, "supports_night_shoot": false, "power_access": true, "available_from": "2026-07-28", "available_to": "2026-12-31" },
+    { "location_id": "LOC-05", "name": "Harborline Freight Yard", "type": "industrial_lot", "region": "US-East", "permit_cost_per_day": 1900, "supports_night_shoot": true, "power_access": true, "available_from": "2026-08-01", "available_to": "2026-11-01" },
+    { "location_id": "LOC-06", "name": "Cutter Street Dock 4", "type": "warehouse_dock", "region": "US-East", "permit_cost_per_day": 2300, "supports_night_shoot": true, "power_access": true, "available_from": "2026-08-01", "available_to": "2026-10-31" }
+  ]
+}

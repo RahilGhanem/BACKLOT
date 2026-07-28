@@ -1,0 +1,11 @@
+{
+  "_synthetic": true,
+  "_disclaimer": "Fabricated scheduling priors for demo/dev purposes only.",
+  "records": [
+    { "genre": "heist_thriller", "scale": "short_film", "avg_pages_per_day": 4.5, "avg_shoot_days": 4, "sample_size": 5, "notes": "Night-heavy schedules reduce pages/day vs. day interiors." },
+    { "genre": "heist_thriller", "scale": "feature", "avg_pages_per_day": 3.2, "avg_shoot_days": 28, "sample_size": 8 },
+    { "genre": "drama", "scale": "short_film", "avg_pages_per_day": 6.0, "avg_shoot_days": 3, "sample_size": 9 },
+    { "genre": "drama", "scale": "feature", "avg_pages_per_day": 4.1, "avg_shoot_days": 24, "sample_size": 11 },
+    { "genre": "action", "scale": "feature", "avg_pages_per_day": 2.4, "avg_shoot_days": 42, "sample_size": 6, "notes": "Vehicle and stunt units lower average pages/day." }
+  ]
+}

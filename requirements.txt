@@ -1,0 +1,16 @@
+# Core agent framework — pull in the mcp extra so google-adk's pinned,
+# compatible version of the mcp SDK is installed (bare `pip install mcp`
+# resolves to a newer, incompatible major version).
+google-adk[mcp]==2.5.0
+
+# Web/API layer (Phase 5 UI backend; harmless to have installed earlier)
+fastapi==0.140.13
+uvicorn==0.51.0
+
+# Config + validation
+python-dotenv==1.2.2
+pydantic==2.13.4
+
+# Dev / test
+pytest==8.3.5
+pytest-asyncio==0.24.0

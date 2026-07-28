@@ -1,0 +1,20 @@
+{
+  "_synthetic": true,
+  "_disclaimer": "Fabricated rate cards for demo/dev purposes only.",
+  "currency": "USD",
+  "unit": "per_day",
+  "records": [
+    { "category": "grip_and_electric_package", "region": "US-West", "rate": 4200, "vendor": "Lot 12 Grip & Electric" },
+    { "category": "grip_and_electric_package", "region": "US-East", "rate": 3900, "vendor": "Harborline Lighting Co." },
+    { "category": "camera_package_pro", "region": "US-West", "rate": 5800, "vendor": "Backlot Camera Rentals" },
+    { "category": "camera_package_pro", "region": "US-East", "rate": 5400, "vendor": "Eastline Cine Rentals" },
+    { "category": "picture_vehicle_cargo_van", "region": "US-West", "rate": 650, "vendor": "Studio Fleet Services" },
+    { "category": "picture_vehicle_cargo_van", "region": "US-East", "rate": 600, "vendor": "Coastal Picture Cars" },
+    { "category": "security_night_shoot", "region": "US-West", "rate": 1200, "vendor": "Perimeter Watch Security" },
+    { "category": "security_night_shoot", "region": "US-East", "rate": 1100, "vendor": "Harborline Security" },
+    { "category": "catering_full_crew", "region": "US-West", "rate": 3100, "vendor": "Craft & Call Catering" },
+    { "category": "catering_full_crew", "region": "US-East", "rate": 2900, "vendor": "Eastline Craft Services" },
+    { "category": "rain_effects_unit", "region": "US-West", "rate": 4800, "vendor": "Weathermaker FX" },
+    { "category": "rain_effects_unit", "region": "US-East", "rate": 4500, "vendor": "Coastal Weather FX" }
+  ]
+}
