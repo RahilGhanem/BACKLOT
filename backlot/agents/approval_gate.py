@@ -10,7 +10,8 @@ the web UI) without touching this class.
 
 from __future__ import annotations
 
-from typing import AsyncGenerator, Callable
+import inspect
+from typing import Awaitable, AsyncGenerator, Callable, Union
 
 from google.adk.agents.base_agent import BaseAgent
 from google.adk.agents.invocation_context import InvocationContext
@@ -18,8 +19,11 @@ from google.adk.events import Event, EventActions
 from google.genai import types
 from pydantic import ConfigDict
 
-# Takes the budget dict (BudgetEstimate.model_dump()); returns (approved, reason).
-ApprovalDecider = Callable[[dict], "tuple[bool, str]"]
+# Takes the budget dict (BudgetEstimate.model_dump()); returns (approved,
+# reason), or an awaitable of the same — an async decider can `await` an
+# external signal (e.g. the web UI's approve/reject endpoint) without
+# blocking the event loop the way a synchronous wait would.
+ApprovalDecider = Callable[[dict], Union["tuple[bool, str]", Awaitable["tuple[bool, str]"]]]
 
 
 def cli_approval_decider(budget: dict) -> tuple[bool, str]:
@@ -54,7 +58,11 @@ class ApprovalGate(BaseAgent):
         self, ctx: InvocationContext
     ) -> AsyncGenerator[Event, None]:
         budget_data = ctx.session.state.get("budget") or {}
-        approved, reason = self.decider(budget_data)
+        result = self.decider(budget_data)
+        if inspect.isawaitable(result):
+            approved, reason = await result
+        else:
+            approved, reason = result
 
         summary = f"Budget {'APPROVED' if approved else 'REJECTED'}: {reason}"
         yield Event(

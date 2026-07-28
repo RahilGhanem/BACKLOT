@@ -55,6 +55,10 @@ class Settings:
 
     log_level: str
 
+    # Local API server (Phase 5)
+    api_host: str
+    api_port: int
+
     def require_llm_credentials(self) -> None:
         """Raise a clear, actionable error if Gemini auth isn't configured.
 
@@ -91,4 +95,6 @@ def get_settings() -> Settings:
         gcs_bucket=os.getenv("GCS_BUCKET", ""),
         firestore_project=os.getenv("FIRESTORE_PROJECT", ""),
         log_level=os.getenv("LOG_LEVEL", "INFO"),
+        api_host=os.getenv("API_HOST", "127.0.0.1"),
+        api_port=int(os.getenv("API_PORT", "8000")),
     )

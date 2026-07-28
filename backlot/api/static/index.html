@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>BACKLOT</title>
+<link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+<header class="topbar">
+  <h1>BACKLOT</h1>
+  <p>an autonomous pre-production crew</p>
+</header>
+
+<main class="layout">
+  <section class="panel input-panel">
+    <h2>1. Screenplay</h2>
+    <textarea id="screenplay" placeholder="Paste a screenplay, or load the sample..."></textarea>
+    <div class="row">
+      <button id="load-sample">Load sample</button>
+      <button id="run" class="primary">Run the crew</button>
+    </div>
+    <p id="run-status" class="status"></p>
+  </section>
+
+  <section class="panel activity-panel">
+    <h2>2. Agent activity</h2>
+    <ol id="activity-log" class="activity-log"></ol>
+  </section>
+
+  <section class="panel approval-panel hidden" id="approval-panel">
+    <h2>3. Approve the budget</h2>
+    <div id="approval-summary"></div>
+    <div class="row">
+      <button id="approve-yes" class="primary">Approve</button>
+      <button id="approve-no">Reject</button>
+    </div>
+  </section>
+
+  <section class="panel results-panel hidden" id="results-panel">
+    <h2>4. Production package</h2>
+    <div id="results"></div>
+  </section>
+
+  <section class="panel metrics-panel hidden" id="metrics-panel">
+    <h2>Scorecard</h2>
+    <div id="metrics"></div>
+  </section>
+</main>
+
+<script src="/app.js"></script>
+</body>
+</html>

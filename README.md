@@ -25,7 +25,7 @@ before the next one starts.
       synthetic mcp_shim server)
 - [x] **Phase 4** — Risk/Continuity agent (bounded re-plan loop), human
       approval gate, scoped tool permissions
-- [ ] **Phase 5** — FastAPI + web UI, live agent-activity panel, metrics
+- [x] **Phase 5** — FastAPI + web UI, live agent-activity panel, metrics
 - [ ] **Phase 6** — Previz (Imagen storyboards, Veo animatic, Lyria cue)
 - [ ] **Phase 7** — Deploy to Agent Engine + Cloud Run; point MCP client at
       the real IBM watsonx.data server
@@ -109,14 +109,20 @@ backlot/
   orchestrator/            # Line Producer
   tools/                    # custom tools, e.g. the scheduling solver
   mcp_shim/                  # local synthetic MCP server (Phase 3)
+  metrics.py                 # evaluation scorecard, computed from the ADK event log
+  api/                        # FastAPI backend + static web UI (Phase 5)
+    run_manager.py             # tracks background runs, relays HTTP approvals
+    app.py                      # routes
+    static/                       # plain HTML/CSS/JS, no build step
 data/
   screenplays/                # sample screenplay(s) used for local dev/tests
   studio_dataset/               # synthetic historical costs, rates, crew, locations,
                                  # past schedules — served by mcp_shim
-tests/                          # pytest; schema/solver/shim tests always run,
-                                 # live-model tests skip automatically without
+tests/                          # pytest; schema/solver/shim/metrics/API tests always
+                                 # run, live-model tests skip automatically without
                                  # credentials (see Testing below)
 run_local.py                     # CLI entrypoint for local, in-memory runs
+run_server.py                     # FastAPI + web UI entrypoint
 ```
 
 ## Setup
@@ -170,14 +176,32 @@ and CI). Use `--stage breakdown` to run only the Script Supervisor (no MCP
 server needed) and write `output/breakdown.json` instead. Pass
 `--screenplay` / `--out` for a different input/output path.
 
+### Web UI
+
+With the MCP shim still running, start the API + UI instead:
+
+```bash
+python run_server.py
+```
+
+Open `http://127.0.0.1:8000`. Load the sample screenplay (or paste your
+own), click **Run the crew**, and watch the live agent-activity panel. When
+the run reaches the approval gate, an Approve/Reject section appears in the
+page — this is the same human-in-the-loop gate `run_local.py` shows on the
+CLI, just relayed over HTTP instead of blocking on stdin (see
+`backlot/api/run_manager.py`). The finished package (schedule, grounded
+budget with provenance badges, risk flags, resources) and the evaluation
+scorecard render below once the run completes.
+
 ## Testing
 
 ```bash
 pytest -v
 ```
 
-- Schema, scheduler-solver, mcp_shim, and agent-configuration tests run
-  with no credentials and no manually-started server.
+- Schema, scheduler-solver, mcp_shim, metrics, API-routing, and
+  agent-configuration tests run with no credentials and no manually-started
+  server.
 - Tests that need the MCP server (Budget/Resource/full-pipeline) auto-start
   `mcp_shim` as a subprocess via the `mcp_shim_process` fixture in
   `tests/conftest.py` — nothing to run by hand for `pytest`.
