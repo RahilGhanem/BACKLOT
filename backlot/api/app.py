@@ -86,6 +86,10 @@ async def health() -> dict:
     return {"ok": True}
 
 
+# Serves icon files from the repo data directory so the UI can use
+# the provided agent icons instead of inline SVGs.
+app.mount("/icons", StaticFiles(directory=str(DATA_DIR / "icons")), name="icons")
+
 # Serves generated storyboards/animatics so the UI can render them by URL
 # (paths in PrevizAsset are server-local; this exposes them at
 # /previz/<run_id>/<filename>). Registered before the catch-all static

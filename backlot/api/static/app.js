@@ -28,14 +28,14 @@ const RUN_BTN_IDLE = runBtn.innerHTML;
 
 /* ---------- icons ---------- */
 const ICONS = {
-  script: `<svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"/><path d="M15 3v4h4"/><path d="M8 12h8M8 15.5h8M8 8.5h4"/></svg>`,
+  script: `<img src="${encodeURI("/icons/Script Supervisor.png")}" alt="Script Supervisor" />`,
   film: `<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 4v16M16 4v16M3 9h5M16 9h5M3 15h5M16 15h5"/></svg>`,
-  calendar: `<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><path d="M7.5 14h2M11 14h2M14.5 14h2M7.5 17h2M11 17h2"/></svg>`,
-  dollar: `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5c0-1.4 1.2-2 2.5-2s2.5.7 2.5 2c0 2.5-5 1.5-5 4 0 1.3 1.2 2 2.5 2s2.5-.6 2.5-2"/></svg>`,
-  alert: `<svg viewBox="0 0 24 24"><path d="M12 3 2 20h20L12 3Z"/><path d="M12 10v4"/><circle cx="12" cy="16.8" r=".6" fill="currentColor" stroke="none"/></svg>`,
-  check: `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9.5"/></svg>`,
-  users: `<svg viewBox="0 0 24 24"><circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20v-1a5 5 0 0 1 5-5h0a5 5 0 0 1 5 5v1"/><path d="M14.5 14.2A4 4 0 0 1 21 17.3V19"/></svg>`,
-  package: `<svg viewBox="0 0 24 24"><path d="M12 3 3 7.5 12 12l9-4.5L12 3Z"/><path d="M3 7.5V17l9 4.5 9-4.5V7.5"/><path d="M12 12v9.5"/></svg>`,
+  calendar: `<img src="${encodeURI("/icons/1st-AD Scheduler.png")}" alt="1st-AD Scheduler" />`,
+  dollar: `<img src="${encodeURI("/icons/Budget Agent.png")}" alt="Budget Agent" />`,
+  alert: `<img src="${encodeURI("/icons/Risk Continuity.png")}" alt="Risk / Continuity" />`,
+  check: `<img src="${encodeURI("/icons/Approval Gate.png")}" alt="Approval Gate" />`,
+  users: `<img src="${encodeURI("/icons/Resource Agent.png")}" alt="Resource Agent" />`,
+  package: `<img src="${encodeURI("/icons/Package Assembler.png")}" alt="Package Assembler" />`,
 };
 
 const AGENT_DEFS = [

@@ -5,12 +5,12 @@
   --panel-2: #221e2c;
   --border: #322d40;
   --border-soft: #2a2635;
-  --text: #ede9f5;
-  --muted: #9992ab;
-  --muted-2: #746e87;
-  --accent: #8b5cf6;
-  --accent-2: #c2410c;
-  --accent-soft: rgba(139, 92, 246, 0.16);
+  --text: #f4eeff;
+  --muted: #d2b4ff;
+  --muted-2: #b69af4;
+  --accent: #ff7ae2;
+  --accent-2: #ee9cff;
+  --accent-soft: rgba(255, 122, 226, 0.22);
   --ok: #34d399;
   --ok-soft: rgba(52, 211, 153, 0.14);
   --warn: #fbbf24;
@@ -93,7 +93,7 @@ svg.icon-lg { width: 1.6em; height: 1.6em; }
 }
 .brand { display: flex; align-items: center; gap: 0.7rem; }
 .brand-mark {
-  width: 44px; height: 44px;
+  width: 56px; height: 56px;
   object-fit: contain;
   filter: drop-shadow(0 4px 10px rgba(219, 39, 119, 0.45));
 }
@@ -193,7 +193,7 @@ svg.icon-lg { width: 1.6em; height: 1.6em; }
   font-size: 0.85rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--muted);
+  color: var(--accent-2);
   display: flex;
   align-items: center;
   gap: 0.45rem;
@@ -249,7 +249,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 button.primary {
   background: linear-gradient(155deg, var(--accent), #6d28d9);
   border-color: transparent;
-  color: #fff;
+  color: var(--text);
   box-shadow: 0 6px 20px -8px rgba(139,92,246,.65);
 }
 button.primary:hover:not(:disabled) { filter: brightness(1.08); border-color: transparent; }
@@ -265,8 +265,8 @@ button.small { padding: 0.35rem 0.7rem; font-size: 0.78rem; }
 
 .btn-spinner {
   width: 0.9em; height: 0.9em;
-  border: 2px solid rgba(255,255,255,.35);
-  border-top-color: #fff;
+  border: 2px solid rgba(244,238,255,.35);
+  border-top-color: var(--text);
   border-radius: 50%;
   animation: spin .7s linear infinite;
 }
@@ -310,15 +310,20 @@ button.small { padding: 0.35rem 0.7rem; font-size: 0.78rem; }
   transition: border-color .25s, background .25s;
 }
 .crew-card .crew-icon {
-  width: 34px; height: 34px;
+  width: 70px; height: 70px;
   border-radius: 9px;
   display: grid; place-items: center;
-  background: var(--panel-2);
+  background: transparent;
   color: var(--muted-2);
   flex-shrink: 0;
-  transition: background .25s, color .25s;
+  transition: color .25s;
 }
-.crew-card .crew-icon svg { width: 17px; height: 17px; }
+.crew-card .crew-icon svg,
+.crew-card .crew-icon img {
+  width: 44px; height: 44px;
+  object-fit: contain;
+}
+.crew-card .crew-icon img { display: block; }
 .crew-body { min-width: 0; flex: 1; }
 .crew-name { font-weight: 700; font-size: 0.88rem; display: flex; align-items: center; gap: 0.4rem; }
 .crew-hint { color: var(--muted-2); font-size: 0.74rem; }
@@ -341,7 +346,7 @@ button.small { padding: 0.35rem 0.7rem; font-size: 0.78rem; }
   border-color: var(--accent);
   background: linear-gradient(90deg, var(--accent-soft), transparent 70%);
 }
-.crew-card.is-active .crew-icon { background: var(--accent); color: #fff; }
+.crew-card.is-active .crew-icon { background: transparent; color: var(--text); }
 .crew-card.is-active .crew-status { color: var(--accent); border-color: var(--accent); }
 .crew-card.is-active .crew-status .dot { animation: pulse 1.1s ease-in-out infinite; }
 @keyframes pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .4; transform: scale(1.6); } }
@@ -374,7 +379,7 @@ button.small { padding: 0.35rem 0.7rem; font-size: 0.78rem; }
 .activity-log .agent { color: var(--accent); font-weight: 700; margin-right: 0.4rem; }
 .activity-log .tstamp { color: var(--muted-2); font-size: 0.68rem; margin-right: 0.4rem; }
 .activity-log .tool {
-  display: inline-block; background: var(--accent-soft); color: #d8c8fb;
+  display: inline-block; background: var(--accent-soft); color: var(--text);
   border-radius: 4px; padding: 0.05rem 0.4rem; margin: 0.15rem 0.25rem 0 0; font-size: 0.72rem;
 }
 
