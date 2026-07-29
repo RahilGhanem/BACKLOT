@@ -35,13 +35,18 @@ class ApprovalRequest(BaseModel):
 
 
 @app.get("/api/sample-screenplay")
-def sample_screenplay() -> dict:
+async def sample_screenplay() -> dict:
     path = DATA_DIR / "screenplays" / "sample_screenplay.txt"
     return {"screenplay": path.read_text(encoding="utf-8")}
 
 
 @app.post("/api/runs")
-def create_run(req: StartRunRequest) -> dict:
+async def create_run(req: StartRunRequest) -> dict:
+    # Must be async: start_run() calls asyncio.create_task(), which needs a
+    # running event loop on the CURRENT thread. FastAPI runs plain `def`
+    # path operations in a worker thread via anyio.to_thread.run_sync,
+    # which has no running loop of its own — that mismatch is exactly what
+    # raised "RuntimeError: no running event loop" here before this fix.
     if not req.screenplay.strip():
         raise HTTPException(400, "screenplay text is required")
     state = start_run(req.screenplay, with_previz=req.with_previz)
@@ -49,7 +54,7 @@ def create_run(req: StartRunRequest) -> dict:
 
 
 @app.get("/api/runs/{run_id}")
-def read_run(run_id: str) -> dict:
+async def read_run(run_id: str) -> dict:
     state = get_run(run_id)
     if state is None:
         raise HTTPException(404, "unknown run_id")
@@ -65,7 +70,7 @@ def read_run(run_id: str) -> dict:
 
 
 @app.post("/api/runs/{run_id}/approve")
-def approve_run(run_id: str, req: ApprovalRequest) -> dict:
+async def approve_run(run_id: str, req: ApprovalRequest) -> dict:
     state = get_run(run_id)
     if state is None:
         raise HTTPException(404, "unknown run_id")
@@ -77,7 +82,7 @@ def approve_run(run_id: str, req: ApprovalRequest) -> dict:
 
 
 @app.get("/api/health")
-def health() -> dict:
+async def health() -> dict:
     return {"ok": True}
 
 
