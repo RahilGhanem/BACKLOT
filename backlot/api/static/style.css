@@ -40,16 +40,23 @@ body {
   position: relative;
 }
 
-/* faint vignette + top glow, evokes a screening room rather than a plain dark page */
+/* The BACKLOT night-lot photo, dimmed under a top-to-bottom scrim so page
+   content stays readable, with the same purple/orange glows as before
+   layered on top for continuity with the rest of the palette. Fixed to
+   the viewport (not the page), so it never scrolls with content. */
 .scene-glow {
   position: fixed;
   inset: 0;
   z-index: -1;
   pointer-events: none;
   background:
-    radial-gradient(1100px 500px at 15% -10%, rgba(139,92,246,0.16), transparent 60%),
-    radial-gradient(900px 500px at 100% 0%, rgba(194,65,12,0.10), transparent 55%),
-    linear-gradient(180deg, var(--bg-2), var(--bg) 340px);
+    radial-gradient(1100px 500px at 15% -10%, rgba(139,92,246,0.20), transparent 60%),
+    radial-gradient(900px 500px at 100% 0%, rgba(194,65,12,0.12), transparent 55%),
+    linear-gradient(180deg, rgba(16,14,22,0.35) 0%, rgba(16,14,22,0.55) 45%, var(--bg) 88%),
+    url('/background.png');
+  background-repeat: no-repeat;
+  background-size: auto, auto, auto, cover;
+  background-position: 0 0, 0 0, 0 0, center 30%;
 }
 
 svg.icon {
@@ -86,14 +93,10 @@ svg.icon-lg { width: 1.6em; height: 1.6em; }
 }
 .brand { display: flex; align-items: center; gap: 0.7rem; }
 .brand-mark {
-  width: 38px; height: 38px;
-  border-radius: 10px;
-  display: grid; place-items: center;
-  background: linear-gradient(155deg, var(--accent), #5b21b6);
-  color: #fff;
-  box-shadow: 0 6px 18px -6px rgba(139,92,246,.6);
+  width: 44px; height: 44px;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 10px rgba(219, 39, 119, 0.45));
 }
-.brand-mark svg { width: 22px; height: 22px; }
 .brand-text h1 {
   margin: 0;
   font-size: 1.15rem;

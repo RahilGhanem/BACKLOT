@@ -30,6 +30,23 @@ def _bool_env(name: str, default: bool = False) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _enterprise_mode_enabled() -> bool:
+    """Whether Gemini calls should route through Vertex AI / the Gemini
+    Enterprise Agent Platform rather than the AI Studio Developer API.
+
+    Mirrors google.adk.utils.env_utils.is_enterprise_mode_enabled()'s own
+    precedence exactly: GOOGLE_GENAI_USE_ENTERPRISE wins if set; otherwise
+    fall back to the older GOOGLE_GENAI_USE_VERTEXAI. ADK's internals read
+    the same two variables independently (they resolve the model for every
+    LlmAgent call), so this file's precedence has to match ADK's or the two
+    could disagree about which mode is active. We don't re-emit ADK's
+    DeprecationWarning here — ADK's own call site already does, once.
+    """
+    if "GOOGLE_GENAI_USE_ENTERPRISE" in os.environ:
+        return _bool_env("GOOGLE_GENAI_USE_ENTERPRISE")
+    return _bool_env("GOOGLE_GENAI_USE_VERTEXAI", default=False)
+
+
 @dataclass(frozen=True)
 class Settings:
     # Model routing
@@ -78,26 +95,27 @@ class Settings:
         if self.use_vertexai:
             if not self.google_cloud_project:
                 raise RuntimeError(
-                    "GOOGLE_GENAI_USE_VERTEXAI=TRUE requires "
+                    "GOOGLE_GENAI_USE_ENTERPRISE=TRUE (or the older "
+                    "GOOGLE_GENAI_USE_VERTEXAI=TRUE) requires "
                     "GOOGLE_CLOUD_PROJECT to be set in .env."
                 )
         elif not self.google_api_key:
             raise RuntimeError(
                 "No Gemini credentials configured. Copy .env.example to "
                 ".env and set GOOGLE_API_KEY (AI Studio) or set "
-                "GOOGLE_GENAI_USE_VERTEXAI=TRUE plus GOOGLE_CLOUD_PROJECT "
+                "GOOGLE_GENAI_USE_ENTERPRISE=TRUE plus GOOGLE_CLOUD_PROJECT "
                 "(Vertex AI)."
             )
 
 
 def get_settings() -> Settings:
     return Settings(
-        gemini_model_flash=os.getenv("GEMINI_MODEL_FLASH", "gemini-3-flash"),
-        gemini_model_pro=os.getenv("GEMINI_MODEL_PRO", "gemini-3.1-pro"),
+        gemini_model_flash=os.getenv("GEMINI_MODEL_FLASH", "gemini-3.6-flash"),
+        gemini_model_pro=os.getenv("GEMINI_MODEL_PRO", "gemini-3.6-flash"),
         imagen_model=os.getenv("IMAGEN_MODEL", "imagen-4.0-generate-001"),
         veo_model=os.getenv("VEO_MODEL", "veo-3.1-generate-preview"),
         lyria_model=os.getenv("LYRIA_MODEL", "lyria-3-clip-preview"),
-        use_vertexai=_bool_env("GOOGLE_GENAI_USE_VERTEXAI", default=False),
+        use_vertexai=_enterprise_mode_enabled(),
         google_api_key=os.getenv("GOOGLE_API_KEY", ""),
         google_cloud_project=os.getenv("GOOGLE_CLOUD_PROJECT", ""),
         google_cloud_location=os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1"),
