@@ -290,6 +290,36 @@ button.small { padding: 0.35rem 0.7rem; font-size: 0.78rem; }
 .status.is-error { color: var(--bad); }
 .status.is-ok { color: var(--ok); }
 
+/* ---------- re-plan banner ----------
+   Deliberately louder than the per-card "re-plan ×N" pill (see
+   .crew-repeat below) — this is the "unmistakable, show a judge" signal
+   that the bounded re-plan loop (backlot/orchestrator/line_producer.py)
+   actually fired, not just a detail buried on one card. */
+.replan-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin: 0 0 0.75rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--warn);
+  background: linear-gradient(90deg, var(--warn-soft), transparent 85%);
+  color: var(--text);
+  font-size: 0.83rem;
+  animation: replan-pulse 1.8s ease-in-out infinite;
+}
+.replan-banner-icon { font-size: 1.3rem; flex-shrink: 0; animation: spin-loop 2.2s linear infinite; }
+.replan-banner-text strong { color: var(--warn); }
+@keyframes replan-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 var(--warn-soft); }
+  50% { box-shadow: 0 0 0 6px transparent; border-color: var(--accent); }
+}
+@keyframes spin-loop {
+  0% { transform: rotate(0deg); }
+  35% { transform: rotate(360deg); }
+  100% { transform: rotate(360deg); }
+}
+
 /* ---------- crew track ---------- */
 .crew-track {
   list-style: none;
@@ -326,7 +356,8 @@ button.small { padding: 0.35rem 0.7rem; font-size: 0.78rem; }
 .crew-card .crew-icon img { display: block; }
 .crew-body { min-width: 0; flex: 1; }
 .crew-name { font-weight: 700; font-size: 0.88rem; display: flex; align-items: center; gap: 0.4rem; }
-.crew-hint { color: var(--muted-2); font-size: 0.74rem; }
+.crew-hint { color: var(--muted-2); font-size: 0.74rem; transition: color .15s; }
+.crew-hint.is-live { color: #d8c8fb; font-weight: 600; }
 .crew-repeat {
   font-size: 0.68rem; color: var(--warn); background: var(--warn-soft);
   border-radius: 999px; padding: 0.05rem 0.4rem; font-weight: 700;

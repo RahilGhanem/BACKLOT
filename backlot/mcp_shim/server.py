@@ -1,7 +1,10 @@
-"""BACKLOT's local, synthetic stand-in for the IBM watsonx.data remote MCP
-server. Exposes the exact tool interface the real IBM server would: agents
-never need to change when MCP_SERVER_URL is repointed at IBM's endpoint in
-production (see .env.example and README's "Data note").
+"""BACKLOT's local, synthetic stand-in for the real ClickHouse MCP server
+(github.com/ClickHouse/mcp-clickhouse). Exposes a similar tool interface so
+agents' *rules* (grounding, provenance, no-invented-numbers) never need to
+change when MCP_MODE is repointed at a real ClickHouse cluster in
+production — only the tool names/instructions differ per mode (see
+budget.py/resource.py's per-mode instructions, .env.example, and README's
+"Data note").
 
 Run standalone:
     python -m backlot.mcp_shim.server
@@ -31,8 +34,9 @@ mcp = FastMCP(
     instructions=(
         "Synthetic studio-data MCP server for BACKLOT local development. "
         "Serves fabricated historical costs, vendor rates, crew/location "
-        "libraries, and past-schedule patterns behind the same tool "
-        "interface the real IBM watsonx.data remote MCP server exposes."
+        "libraries, and past-schedule patterns — the offline dev fallback "
+        "for MCP_MODE=clickhouse's real ClickHouse cluster + "
+        "mcp-clickhouse server."
     ),
     host=_settings.mcp_shim_host,
     port=_settings.mcp_shim_port,

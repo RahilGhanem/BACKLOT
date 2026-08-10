@@ -20,7 +20,7 @@ def test_build_script_supervisor_is_configured_correctly():
     assert agent.output_key == "breakdown"
     assert agent.output_schema is ScriptBreakdown
     # model routing follows settings, not a hardcoded string
-    assert agent.model == settings.gemini_model_pro
+    assert agent.model.model == settings.gemini_model_pro
 
 
 def _has_llm_credentials() -> bool:

@@ -46,21 +46,34 @@ class _FakeStateAgent(BaseAgent):
         )
 
 
+def _night_scene(number: str, seq: int, pages: float) -> dict:
+    return {
+        "scene_number": number,
+        "sequence_index": seq,
+        "slugline": "EXT. LOT - NIGHT",
+        "int_ext": "EXT",
+        "time_of_day": "NIGHT",
+        "location": "LOT",
+        "synopsis": "test",
+        "cast": ["MARA"],
+        "estimated_page_count": pages,
+    }
+
+
+# One oversized scene (6.0 pages, always > any cap the shrink lever
+# produces below) keeps _has_overloaded_day() true every attempt so the
+# loop always has a lever to pull; the three smaller scenes re-group
+# differently as the cap shrinks from 5.0 -> 4.25 (one day of 3 -> a
+# 2-and-1 split), which changes the schedule's fingerprint between attempt
+# 0 and 1 so the loop doesn't hit the fixed-point break before the cap.
 _BREAKDOWN = {
     "title": "TEST",
-    "total_estimated_pages": 1.0,
+    "total_estimated_pages": 10.5,
     "scenes": [
-        {
-            "scene_number": "1",
-            "sequence_index": 0,
-            "slugline": "EXT. LOT - NIGHT",
-            "int_ext": "EXT",
-            "time_of_day": "NIGHT",
-            "location": "LOT",
-            "synopsis": "test",
-            "cast": ["MARA"],
-            "estimated_page_count": 1.0,
-        }
+        _night_scene("1", 0, 6.0),
+        _night_scene("2", 1, 1.5),
+        _night_scene("3", 2, 1.5),
+        _night_scene("4", 3, 1.5),
     ],
     "unique_cast": ["MARA"],
     "unique_locations": ["LOT"],
@@ -71,7 +84,18 @@ _BUDGET = {"title": "TEST", "currency": "USD", "total_estimated_cost": 1000.0, "
 _RISK_REPLAN = {
     "title": "TEST",
     "schedule_feasible": False,
-    "flags": [],
+    # A real RiskReport can't have replan_requested=True with zero flags
+    # (see backlot/schemas/risk.py's validator) -- this fixture carries the
+    # same high-severity, justified flag every attempt so it forces a
+    # replan every time without being the exact contradiction Gap 3 outlaws.
+    "flags": [
+        {
+            "category": "schedule_feasibility",
+            "severity": "high",
+            "description": "test forces a replan every time",
+            "recommendation": "re-pack shoot days under a different pages-per-day budget",
+        }
+    ],
     "replan_requested": True,
     "replan_reason": "test forces a replan every time",
 }

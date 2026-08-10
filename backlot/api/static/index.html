@@ -43,6 +43,7 @@
       </label>
       <div class="row">
         <button id="load-sample" class="ghost">Load sample</button>
+        <button id="load-replan-demo" class="ghost" title="A screenplay purpose-built to trigger the bounded re-plan loop (six consecutive night exteriors)">Load re-plan demo</button>
         <button id="run" class="primary">
           <svg viewBox="0 0 24 24" class="icon"><path d="M7 5v14l11-7Z"/></svg>
           Run the crew
@@ -57,6 +58,7 @@
       <h2><svg viewBox="0 0 24 24" class="icon"><circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20v-1a5 5 0 0 1 5-5h0a5 5 0 0 1 5 5v1"/><path d="M14.5 14.2A4 4 0 0 1 21 17.3V19"/></svg> The crew</h2>
       <button id="toggle-log" class="link-btn" aria-expanded="false">Show detailed log ▾</button>
     </div>
+    <div class="replan-banner hidden" id="replan-banner" role="status"></div>
     <ol class="crew-track" id="crew-track"></ol>
     <ol class="activity-log hidden" id="activity-log"></ol>
   </section>

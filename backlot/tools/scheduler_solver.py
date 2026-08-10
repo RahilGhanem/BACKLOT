@@ -18,11 +18,13 @@ _NIGHT_BUCKET = {TimeOfDay.NIGHT, TimeOfDay.DUSK}
 
 
 def _continuity_bucket(scene: SceneBreakdown) -> str:
-    """NIGHT or DAY grouping key.
+    """NIGHT or DAY grouping key for a scene with an explicit time_of_day.
 
     A real 1st AD never mixes night and day scenes in one shoot day because
-    the lighting rig and crew call times differ; DAWN/CONTINUOUS/UNSPECIFIED
-    default to DAY, the more common case.
+    the lighting rig and crew call times differ; DAWN/UNSPECIFIED default to
+    DAY, the more common case. CONTINUOUS is handled separately by the
+    caller, since it doesn't carry its own time-of-day -- it means "same
+    continuous timeframe as whatever scene came before."
     """
     return "NIGHT" if scene.time_of_day in _NIGHT_BUCKET else "DAY"
 
@@ -32,19 +34,29 @@ def solve_schedule(
     max_pages_per_day: float = DEFAULT_MAX_PAGES_PER_DAY,
 ) -> Schedule:
     """Groups scenes by (location, day/night) and packs each group into
-    consecutive shoot days under a page-count budget.
+    the fewest shoot days a page-count budget allows.
 
     Group order follows first-appearance order in the script, which
     consolidates repeat visits to the same location without otherwise
-    reordering the shoot.
+    reordering the shoot. Different locations are never packed into the
+    same shoot day (company moves), even when both are NIGHT scenes.
     """
     if max_pages_per_day <= 0:
         raise ValueError("max_pages_per_day must be positive.")
 
     groups: dict[tuple[str, str], list[SceneBreakdown]] = {}
     group_order: list[tuple[str, str]] = []
+    prev_bucket = "DAY"
     for scene in sorted(breakdown.scenes, key=lambda s: s.sequence_index):
-        key = (scene.location, _continuity_bucket(scene))
+        # CONTINUOUS doesn't carry its own time-of-day -- it's the same
+        # continuous timeframe as whatever scene came right before it (e.g.
+        # cutting into a moving car mid-chase), so it inherits that scene's
+        # bucket instead of defaulting to DAY. Getting this wrong silently
+        # pulls a scene out of its actual night shoot and miscounts both
+        # the day/night split and the resulting shoot-day total.
+        bucket = prev_bucket if scene.time_of_day is TimeOfDay.CONTINUOUS else _continuity_bucket(scene)
+        prev_bucket = bucket
+        key = (scene.location, bucket)
         if key not in groups:
             groups[key] = []
             group_order.append(key)
@@ -54,21 +66,47 @@ def solve_schedule(
     day_number = 0
 
     for location, bucket in group_order:
-        remaining = list(groups[(location, bucket)])
+        # First-fit-decreasing: pack the largest scenes first. Packing in
+        # plain arrival order can strand a handful of small scenes on their
+        # own extra day purely because of arrival order -- e.g. pages
+        # [4, 4, 1, 1] under a 5-page cap take 3 days in arrival order but
+        # only need 2 -- which shows up as spurious extra shoot days (and,
+        # for a NIGHT group, spurious extra night days) with no scheduling
+        # reason behind them.
+        remaining = sorted(
+            groups[(location, bucket)],
+            key=lambda s: s.estimated_page_count,
+            reverse=True,
+        )
         while remaining:
             day_scenes: list[SceneBreakdown] = []
             day_pages = 0.0
-            while remaining and (
-                not day_scenes
-                or day_pages + remaining[0].estimated_page_count <= max_pages_per_day
-            ):
-                scene = remaining.pop(0)
-                day_scenes.append(scene)
-                day_pages += scene.estimated_page_count
+            i = 0
+            while i < len(remaining):
+                scene = remaining[i]
+                if not day_scenes or day_pages + scene.estimated_page_count <= max_pages_per_day:
+                    day_scenes.append(scene)
+                    day_pages += scene.estimated_page_count
+                    remaining.pop(i)
+                else:
+                    i += 1
+            # Packing order was by size, not story order; restore script
+            # order within the day purely for readability (which day a
+            # scene lands on is unaffected).
+            day_scenes.sort(key=lambda s: s.sequence_index)
 
             day_number += 1
             int_ext_values = {s.int_ext for s in day_scenes}
-            time_of_day_values = {s.time_of_day for s in day_scenes}
+            # CONTINUOUS doesn't carry real time-of-day info of its own (see
+            # the grouping loop above, which already resolved it to this
+            # day's actual NIGHT/DAY bucket) -- excluding it here means a
+            # day made up entirely of CONTINUOUS scenes (or CONTINUOUS mixed
+            # with one other exact match) still reports the bucket it was
+            # actually scheduled under, via the fallback below, instead of
+            # leaking the literal CONTINUOUS enum value into the output.
+            time_of_day_values = {
+                s.time_of_day for s in day_scenes if s.time_of_day is not TimeOfDay.CONTINUOUS
+            }
             cast_called = sorted({name for s in day_scenes for name in s.cast})
 
             notes = ""

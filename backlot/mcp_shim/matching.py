@@ -1,9 +1,10 @@
 """Small fuzzy-matching helpers used by the shim's tool implementations.
 
 An LLM asking for e.g. "rain effects" won't always spell a catalog key
-exactly as it's stored ("rain_effects_unit"), and a real IBM watsonx.data
-deployment would resolve this kind of near-miss via its own natural-language
-query interface. Token-overlap scoring is the deterministic, dependency-free
+exactly as it's stored ("rain_effects_unit"), and a real ClickHouse
+deployment resolves this kind of near-miss with a `column ILIKE '%token%'`
+SQL query instead (see budget.py/resource.py's clickhouse-mode
+instructions). Token-overlap scoring is the deterministic, dependency-free
 stand-in for that here — good enough to make grounding actually succeed in
 typical cases without ever inventing a match that isn't there.
 """

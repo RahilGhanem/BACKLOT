@@ -2,11 +2,13 @@
 const screenplayEl = document.getElementById("screenplay");
 const runBtn = document.getElementById("run");
 const loadSampleBtn = document.getElementById("load-sample");
+const loadReplanDemoBtn = document.getElementById("load-replan-demo");
 const runStatusEl = document.getElementById("run-status");
 const withPrevizEl = document.getElementById("with-previz");
 
 const crewPanel = document.getElementById("crew-panel");
 const crewTrackEl = document.getElementById("crew-track");
+const replanBannerEl = document.getElementById("replan-banner");
 const activityLogEl = document.getElementById("activity-log");
 const toggleLogBtn = document.getElementById("toggle-log");
 
@@ -42,14 +44,19 @@ const AGENT_DEFS = [
   { key: "script_supervisor", label: "Script Supervisor", hint: "Parses the screenplay into a scene breakdown", icon: ICONS.script },
   { key: "previz_agent", label: "Previz", hint: "Imagen storyboards, Veo animatic, Lyria cue", icon: ICONS.film, optional: true },
   { key: "first_ad_scheduler", label: "1st-AD Scheduler", hint: "Builds the stripboard shoot schedule", icon: ICONS.calendar },
-  { key: "budget_agent", label: "Budget Agent", hint: "Grounded in studio data via IBM MCP", icon: ICONS.dollar },
+  { key: "budget_agent", label: "Budget Agent", hint: "Grounded in studio data via ClickHouse MCP", icon: ICONS.dollar },
   { key: "risk_agent", label: "Risk / Continuity", hint: "Critiques the schedule and budget", icon: ICONS.alert },
   { key: "approval_gate", label: "Approval Gate", hint: "Producer signs off the budget band", icon: ICONS.check },
-  { key: "resource_agent", label: "Resource Agent", hint: "Grounded in studio data via IBM MCP", icon: ICONS.users },
+  { key: "resource_agent", label: "Resource Agent", hint: "Grounded in studio data via ClickHouse MCP", icon: ICONS.users },
   { key: "package_assembler", label: "Package Assembler", hint: "Combines everything into the package", icon: ICONS.package },
 ];
 const STATUS_LABEL = { pending: "Pending", active: "Working", done: "Done", skipped: "Skipped", error: "Error" };
 const STEPS = ["input", "crew", "approval", "done"];
+// Mirrors MAX_REPLANS + 1 in backlot/orchestrator/line_producer.py (the
+// loop runs at most MAX_REPLANS re-plans, i.e. MAX_REPLANS + 1 attempts
+// total) — purely cosmetic (the "attempt N of 3" label), never enforced
+// client-side.
+const MAX_REPLAN_ATTEMPTS = 3;
 
 /* ---------- run state ---------- */
 let currentRunId = null;
@@ -58,12 +65,20 @@ let currentPackage = null;
 let pollHandle = null;
 let renderedEventCount = 0;
 let approvalShown = false;
+let activeTabId = null;
 
 /* ---------- setup actions ---------- */
 loadSampleBtn.addEventListener("click", async () => {
   const res = await fetch("/api/sample-screenplay");
   const data = await res.json();
   screenplayEl.value = data.screenplay;
+});
+
+loadReplanDemoBtn.addEventListener("click", async () => {
+  const res = await fetch("/api/replan-demo-screenplay");
+  const data = await res.json();
+  screenplayEl.value = data.screenplay;
+  setStatus("Loaded the re-plan demo — six consecutive night exteriors, built to trigger the bounded re-plan loop.");
 });
 
 runBtn.addEventListener("click", async () => {
@@ -160,7 +175,10 @@ function resetForNewRun() {
   currentPackage = null;
   renderedEventCount = 0;
   approvalShown = false;
+  activeTabId = null;
   activityLogEl.innerHTML = "";
+  replanBannerEl.classList.add("hidden");
+  replanBannerEl.innerHTML = "";
   crewPanel.classList.add("hidden");
   resultsPanel.classList.add("hidden");
   approvalBackdrop.classList.add("hidden");
@@ -195,6 +213,17 @@ async function pollRun() {
     approvalShown = false;
   }
 
+  const isFinal = ["completed", "rejected", "error"].includes(data.status);
+
+  // Render progressively: as soon as ANY crew member has produced
+  // something (the breakdown, the schedule, ...), show it — don't wait
+  // for the whole run to finish. This is the same renderResults() the
+  // final view uses; partial_state just has fewer keys filled in yet.
+  const inProgressPkg = data.package || data.partial_state;
+  if (inProgressPkg && Object.keys(inProgressPkg).length) {
+    renderResults(inProgressPkg, isFinal);
+  }
+
   if (data.status === "completed" || data.status === "rejected") {
     clearInterval(pollHandle);
     resetRunBtn();
@@ -203,16 +232,12 @@ async function pollRun() {
       data.status === "completed" ? "Package complete." : "Budget rejected — package assembled without resources.",
       data.status === "completed" ? "ok" : "error"
     );
-    renderResults(data.package);
     renderMetrics(data.metrics);
   } else if (data.status === "error") {
     clearInterval(pollHandle);
     resetRunBtn();
     setStatus(`Error: ${data.error || "unknown error"}`, "error");
-    if (data.package) {
-      renderResults(data.package);
-      renderMetrics(data.metrics);
-    }
+    if (data.metrics) renderMetrics(data.metrics);
   }
 }
 
@@ -264,27 +289,70 @@ function computeCrewState(def, authors, lastAuthor, status) {
   return "pending";
 }
 
+// The three sub-agents the bounded re-plan loop actually re-runs together
+// (see backlot/orchestrator/line_producer.py) — used to detect a re-plan
+// and drive the unmistakable banner below, independent of the small
+// per-card "re-plan ×N" pill.
+const REPLAN_LOOP_AGENTS = ["first_ad_scheduler", "budget_agent", "risk_agent"];
+
+function updateReplanBanner(events) {
+  const authors = events.map((e) => e.author);
+  const attempts = Math.max(0, ...REPLAN_LOOP_AGENTS.map((key) => countBlocks(authors, key)));
+  if (attempts <= 1) {
+    replanBannerEl.classList.add("hidden");
+    replanBannerEl.innerHTML = "";
+    return;
+  }
+  replanBannerEl.classList.remove("hidden");
+  replanBannerEl.innerHTML = `
+    <span class="replan-banner-icon">🔁</span>
+    <span class="replan-banner-text">
+      <strong>Re-plan loop triggered</strong> — Risk/Continuity flagged a structural
+      problem in the schedule. Scheduler → Budget → Risk re-ran
+      <strong>attempt ${attempts} of ${MAX_REPLAN_ATTEMPTS}</strong>.
+    </span>`;
+}
+
 function renderCrew(events, status) {
   const defs = AGENT_DEFS.filter((d) => !d.optional || currentWithPreviz);
   const authors = events.map((e) => e.author);
   const lastAuthor = authors.length ? authors[authors.length - 1] : null;
+
+  updateReplanBanner(events);
 
   crewTrackEl.innerHTML = defs
     .map((def) => {
       const state = computeCrewState(def, authors, lastAuthor, status);
       const blocks = countBlocks(authors, def.key);
       const repeatBadge = blocks > 1 ? `<span class="crew-repeat">re-plan ×${blocks}</span>` : "";
+      // While a card is active, show what it's actually doing right now
+      // (the latest tool call / message for that agent) instead of the
+      // static description — this is the live "what is the system doing"
+      // visibility, not just a pending/done dot.
+      const activity = state === "active" ? latestActivityFor(events, def.key) : "";
+      const subtitle = activity || def.hint;
       return `
       <li class="crew-card is-${state}">
         <span class="crew-icon">${def.icon}</span>
         <span class="crew-body">
           <span class="crew-name">${escapeHtml(def.label)} ${repeatBadge}</span>
-          <span class="crew-hint">${escapeHtml(def.hint)}</span>
+          <span class="crew-hint${activity ? " is-live" : ""}">${escapeHtml(subtitle)}</span>
         </span>
         <span class="crew-status"><span class="dot"></span>${STATUS_LABEL[state]}</span>
       </li>`;
     })
     .join("");
+}
+
+function latestActivityFor(events, key) {
+  for (let i = events.length - 1; i >= 0; i--) {
+    const ev = events[i];
+    if (ev.author !== key) continue;
+    if (ev.tool_calls && ev.tool_calls.length) return `→ calling ${ev.tool_calls.join(", ")}`;
+    if (ev.text) return `→ ${ev.text}`;
+    return "→ working…";
+  }
+  return "";
 }
 
 function appendNewLogEntries(events) {
@@ -302,8 +370,14 @@ function appendNewLogEntries(events) {
   activityLogEl.scrollTop = activityLogEl.scrollHeight;
 }
 
-/* ---------- results ---------- */
-function renderResults(pkg) {
+/* ---------- results ----------
+   Called repeatedly while a run is still in progress (with whatever
+   partial_state has filled in so far) and once more at the end with the
+   final package — so tabs appear one by one as each crew member finishes,
+   rather than all at once at the very end. `isFinal` controls whether a
+   still-missing section renders as "not produced yet" (in progress) or
+   "not produced" (run is over, it's just not coming). */
+function renderResults(pkg, isFinal) {
   resultsPanel.classList.remove("hidden");
   currentPackage = pkg;
   if (!pkg) {
@@ -312,28 +386,47 @@ function renderResults(pkg) {
     return;
   }
 
-  const tabs = [
-    { id: "breakdown", label: "Breakdown", html: renderBreakdownTab(pkg) },
-    { id: "schedule", label: "Schedule", html: renderScheduleTab(pkg) },
-    { id: "budget", label: "Budget", html: pkg.budget ? renderBudgetFullTab(pkg.budget) : emptyTab("No budget produced.") },
-    { id: "risk", label: "Risk", html: pkg.risk_report ? renderRiskTab(pkg.risk_report) : emptyTab("No risk report produced.") },
-    {
-      id: "resources",
-      label: "Resources",
-      html: pkg.resources ? renderResourcesTab(pkg.resources) : emptyTab("Not produced (budget was rejected)."),
-    },
-  ];
+  const tabs = [];
+  if (pkg.breakdown) tabs.push({ id: "breakdown", label: "Breakdown", html: renderBreakdownTab(pkg) });
+  if (pkg.schedule) tabs.push({ id: "schedule", label: "Schedule", html: renderScheduleTab(pkg) });
+  if (pkg.budget) {
+    tabs.push({ id: "budget", label: "Budget", html: renderBudgetFullTab(pkg.budget) });
+  } else if (isFinal) {
+    tabs.push({ id: "budget", label: "Budget", html: emptyTab("No budget produced.") });
+  }
+  if (pkg.risk_report) {
+    tabs.push({ id: "risk", label: "Risk", html: renderRiskTab(pkg.risk_report) });
+  } else if (isFinal) {
+    tabs.push({ id: "risk", label: "Risk", html: emptyTab("No risk report produced.") });
+  }
+  if (pkg.resources) {
+    tabs.push({ id: "resources", label: "Resources", html: renderResourcesTab(pkg.resources) });
+  } else if (isFinal) {
+    tabs.push({ id: "resources", label: "Resources", html: emptyTab("Not produced (budget was rejected, or the run stopped early).") });
+  }
   if (pkg.previz) tabs.push({ id: "previz", label: "Previz", html: renderPrevizTab(pkg.previz) });
 
+  if (!tabs.length) {
+    tabsEl.innerHTML = "";
+    tabPanelsEl.innerHTML = `<p class="empty-state">Waiting for the crew's first results…</p>`;
+    return;
+  }
+
+  // Keep whichever tab the user is looking at selected as new tabs appear
+  // around it, instead of jumping back to the first tab on every poll.
+  const activeId = tabs.some((t) => t.id === activeTabId) ? activeTabId : tabs[0].id;
+  activeTabId = activeId;
+
   tabsEl.innerHTML = tabs
-    .map((t, i) => `<button class="tab-btn${i === 0 ? " is-active" : ""}" data-tab="${t.id}" role="tab">${escapeHtml(t.label)}</button>`)
+    .map((t) => `<button class="tab-btn${t.id === activeId ? " is-active" : ""}" data-tab="${t.id}" role="tab">${escapeHtml(t.label)}</button>`)
     .join("");
   tabPanelsEl.innerHTML = tabs
-    .map((t, i) => `<div class="tab-panel${i === 0 ? "" : " hidden"}" data-tab-panel="${t.id}">${t.html}</div>`)
+    .map((t) => `<div class="tab-panel${t.id === activeId ? "" : " hidden"}" data-tab-panel="${t.id}">${t.html}</div>`)
     .join("");
 
   tabsEl.querySelectorAll(".tab-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
+      activeTabId = btn.dataset.tab;
       tabsEl.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("is-active"));
       btn.classList.add("is-active");
       tabPanelsEl.querySelectorAll(".tab-panel").forEach((p) => p.classList.add("hidden"));

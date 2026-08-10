@@ -12,13 +12,28 @@ import time
 import uuid
 from dataclasses import dataclass, field
 
+from google.adk.agents import RunConfig
 from google.adk.events import Event
 from google.adk.runners import InMemoryRunner
 from google.genai import types
 
+from ..agents._mcp import check_mcp_reachable
 from ..config import get_settings
 from ..metrics import compute_run_metrics
 from ..orchestrator import build_line_producer
+
+# Every key an agent might write into shared session state, in pipeline
+# order — snapshotted after every event so the UI can render each crew
+# member's output the moment it's ready, not just once the whole run ends.
+_ARTIFACT_KEYS = [
+    "breakdown",
+    "previz",
+    "schedule",
+    "budget",
+    "risk_report",
+    "approval",
+    "resources",
+]
 
 
 @dataclass
@@ -26,6 +41,7 @@ class RunState:
     run_id: str
     status: str = "running"  # running | awaiting_approval | completed | rejected | error
     events: list[dict] = field(default_factory=list)
+    partial_state: dict = field(default_factory=dict)  # live snapshot, see _ARTIFACT_KEYS
     package: dict | None = None
     metrics: dict | None = None
     error: str | None = None
@@ -78,6 +94,10 @@ async def _execute(state: RunState, screenplay_text: str, with_previz: bool) -> 
     settings = get_settings()
     try:
         settings.require_llm_credentials()
+        # check_mcp_reachable does a blocking socket connect; run it off the
+        # event loop thread so it can't stall other in-flight requests/runs
+        # for up to its timeout.
+        await asyncio.to_thread(check_mcp_reachable, settings)
     except RuntimeError as exc:
         state.status = "error"
         state.error = str(exc)
@@ -93,16 +113,33 @@ async def _execute(state: RunState, screenplay_text: str, with_previz: bool) -> 
     )
     message = types.Content(role="user", parts=[types.Part(text=screenplay_text)])
 
+    # Hard safety cap: a runaway tool-calling loop shouldn't be able to
+    # burn through a whole day's free-tier quota in a single run (default
+    # RunConfig.max_llm_calls is 500 — far too loose for e.g. a
+    # 20-requests/day account).
+    run_config = RunConfig(max_llm_calls=settings.max_llm_calls_per_run)
+
     raw_events: list[Event] = []
     try:
         async for event in runner.run_async(
-            user_id=user_id, session_id=state.run_id, new_message=message
+            user_id=user_id, session_id=state.run_id, new_message=message, run_config=run_config
         ):
             raw_events.append(event)
             state.events.append(_summarize_event(event))
+            # Cheap (in-memory session service): snapshot known artifact
+            # keys after every event so the UI can render each crew
+            # member's output the moment it lands, not just at the end.
+            session = await runner.session_service.get_session(
+                app_name=settings.app_name, user_id=user_id, session_id=state.run_id
+            )
+            if session:
+                state.partial_state = {
+                    key: session.state[key] for key in _ARTIFACT_KEYS if key in session.state
+                }
     except Exception as exc:  # surface to the UI rather than losing the run silently
         state.status = "error"
         state.error = str(exc)
+        state.metrics = compute_run_metrics(raw_events, state.partial_state)
         return
 
     session = await runner.session_service.get_session(
@@ -110,7 +147,7 @@ async def _execute(state: RunState, screenplay_text: str, with_previz: bool) -> 
     )
     package = session.state.get("package") if session else None
     state.package = package
-    state.metrics = compute_run_metrics(raw_events, package)
+    state.metrics = compute_run_metrics(raw_events, package or state.partial_state)
 
     if package is None:
         state.status = "error"

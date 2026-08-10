@@ -40,6 +40,16 @@ async def sample_screenplay() -> dict:
     return {"screenplay": path.read_text(encoding="utf-8")}
 
 
+@app.get("/api/replan-demo-screenplay")
+async def replan_demo_screenplay() -> dict:
+    # Purpose-built to trigger the Line Producer's bounded re-plan loop
+    # (six consecutive EXT/NIGHT locations -> six consecutive night shoot
+    # days, past the Risk agent's >3-consecutive-nights bar) -- see the
+    # file's own header comment and backlot/orchestrator/line_producer.py.
+    path = DATA_DIR / "screenplays" / "replan_demo_screenplay.txt"
+    return {"screenplay": path.read_text(encoding="utf-8")}
+
+
 @app.post("/api/runs")
 async def create_run(req: StartRunRequest) -> dict:
     # Must be async: start_run() calls asyncio.create_task(), which needs a

@@ -2,15 +2,16 @@
 
 **An autonomous pre-production crew**, built for the *Agentic Cinema: The
 Blockbuster Hackathon* (Google Cloud + Gemini Enterprise Agent Platform,
-IBM MCP partner track).
+ClickHouse MCP partner track).
 
 Drop in a screenplay. A network of specialised agents — orchestrated with
 Google's Agent Development Kit (ADK) — returns a complete, shootable
 production package: a scene-by-scene breakdown, an optimised shooting
-schedule, a budget grounded in a studio's own historical data (via an IBM
-MCP server), real crew/location picks, a ranked risk report, and (later)
-generative previz. Every budget/resource number the crew produces is
-grounded and cites its source — never invented by the model.
+schedule, a budget grounded in a studio's own historical cost data (which
+lives in ClickHouse, queried via the official ClickHouse MCP server), real
+crew/location picks, a ranked risk report, and (later) generative previz.
+Every budget/resource number the crew produces is grounded and cites its
+source — never invented by the model.
 
 ## Status
 
@@ -21,15 +22,16 @@ before the next one starts.
 - [x] **Phase 1** — Script Supervisor: screenplay → structured breakdown JSON
 - [x] **Phase 2** — Line Producer orchestrator + 1st-AD Scheduler (the
       end-to-end spine: script → breakdown → schedule)
-- [x] **Phase 3** — IBM MCP grounding (Budget + Resource agents, via a local
-      synthetic mcp_shim server)
+- [x] **Phase 3** — ClickHouse MCP grounding (Budget + Resource agents, via
+      a local synthetic mcp_shim server)
 - [x] **Phase 4** — Risk/Continuity agent (bounded re-plan loop), human
       approval gate, scoped tool permissions
 - [x] **Phase 5** — FastAPI + web UI, live agent-activity panel, metrics
 - [x] **Phase 6** — Previz (Imagen storyboards, Veo animatic, Lyria cue) —
       opt-in, see caveat below
-- [x] **Phase 7** — Deploy to Agent Engine + Cloud Run; point MCP client at
-      the real IBM watsonx.data server — see `docs/DEPLOYMENT.md`
+- [x] **Phase 7** — Deploy to Agent Engine + Cloud Run; point the MCP client
+      at a real ClickHouse cluster via the official ClickHouse MCP server —
+      see `docs/DEPLOYMENT.md`
 
 ## Why this shape
 
@@ -56,17 +58,19 @@ what this project closes.
    │                       breakdown exists)
    │                                                    ┌──── bounded
    ├─ 1st-AD Scheduler    (breakdown → stripboard sched)│     re-plan loop
-   ├─ Budget Agent        (grounded via IBM MCP)        │     (max 2 retries,
+   ├─ Budget Agent        (grounded via ClickHouse MCP) │     (max 2 retries,
    ├─ Risk/Continuity     (critiques sched+budget) ──────┘     Phase 4 ✅)
    ├─ Approval Gate       (producer approves the budget band)  [Phase 4 ✅]
-   ├─ Resource Agent      (grounded via IBM MCP; skipped if     [Phase 3 ✅]
-   │                       the budget was rejected)
+   ├─ Resource Agent      (grounded via ClickHouse MCP;         [Phase 3 ✅]
+   │                       skipped if the budget was rejected)
    └─ Package Assembler   (combines everything above)          [Phase 2 ✅]
    │
    ▼
- IBM MCP SERVER (mcp_shim locally with synthetic data; real
- IBM watsonx.data remote MCP server in production — swapping is
- an env-var change only, see .env.example)
+ CLICKHOUSE MCP SERVER (mcp_shim locally with synthetic data; the
+ real, official ClickHouse MCP server — github.com/ClickHouse/
+ mcp-clickhouse — connected to a ClickHouse Cloud or self-hosted
+ cluster in production. Swapping is an env-var change only, see
+ .env.example)
 ```
 
 Agents exchange **compact structured JSON artifacts** (the breakdown, the
@@ -165,7 +169,7 @@ cp .env.example .env
 
 Edit `.env` and set **one** of:
 - `GOOGLE_API_KEY` (AI Studio — fastest for local dev), or
-- `GOOGLE_GENAI_USE_VERTEXAI=TRUE` + `GOOGLE_CLOUD_PROJECT` (Vertex AI —
+- `GOOGLE_GENAI_USE_ENTERPRISE=TRUE` + `GOOGLE_CLOUD_PROJECT` (Vertex AI —
   matches the production deployment path; requires
   `gcloud auth application-default login` or a service account).
 
@@ -261,11 +265,23 @@ run against a live project — every flag is grounded in the installed
 
 Everything under `data/studio_dataset/` is **synthetic** — fabricated
 numbers for demo and development, clearly marked with a `"_synthetic": true`
-flag in each file. It exists to exercise the IBM MCP grounding path without
-needing a live IBM connection during development; pointing at the real IBM
-watsonx.data remote MCP server in production is a `.env` change
-(`MCP_SERVER_URL`, `MCP_AUTH_TOKEN`), not a code change — see
-`backlot/mcp_shim/` for the tool interface the real server needs to match.
+flag in each file. It exists to exercise the ClickHouse MCP grounding path
+without needing a live ClickHouse connection during development.
+
+The real grounding story: the studio's historical cost data, vendor rates,
+and crew/location libraries live in **ClickHouse**; the Budget/Resource
+agents query them via the real, official ClickHouse MCP server
+(`mcp-clickhouse`, github.com/ClickHouse/mcp-clickhouse) for grounded
+estimates. Pointing the agents at a real ClickHouse Cloud or self-hosted
+cluster instead of this synthetic shim is `MCP_MODE=clickhouse` plus a few
+more env vars — see `.env.example`'s ClickHouse section for exactly which
+ones, `scripts/clickhouse_load.sql` for the one-time DDL/load script that
+puts this same synthetic data into real ClickHouse tables, and
+`backlot/agents/_state_instructions.py`'s `clickhouse_sql_rule` /
+`backlot/agents/budget.py` / `resource.py` for how the agents issue real SQL
+SELECTs (via that server's `run_query`/`list_tables` tools, verified against
+mcp-clickhouse's own README) once pointed there — no other code changes
+needed either way.
 
 ## License
 

@@ -1,6 +1,6 @@
 {
   "_synthetic": true,
-  "_disclaimer": "Fabricated data for demo/dev purposes only. Not real production financials. Served by mcp_shim (Phase 3) behind the same tool interface the real IBM watsonx.data MCP server would expose.",
+  "_disclaimer": "Fabricated data for demo/dev purposes only. Not real production financials. Served by mcp_shim (Phase 3) as the offline dev fallback for MCP_MODE=clickhouse's real ClickHouse cluster (see scripts/clickhouse_load.sql, which loads this same data for real).",
   "currency": "USD",
   "records": [
     {

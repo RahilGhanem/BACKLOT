@@ -1,8 +1,9 @@
 # Optional Cloud Run image for the synthetic MCP shim
 # (backlot/mcp_shim/server.py), useful for demoing the grounded Budget/
-# Resource agents in the cloud before the real IBM watsonx.data remote MCP
-# server is wired up. Once IBM access is available, point MCP_SERVER_URL /
-# MCP_AUTH_TOKEN at it instead and retire this image — see the "Data note"
+# Resource agents in the cloud before a real ClickHouse cluster + the
+# official mcp-clickhouse MCP server are wired up. Once that's available,
+# point MCP_MODE=clickhouse / CLICKHOUSE_MCP_URL / CLICKHOUSE_MCP_AUTH_TOKEN
+# at it instead and retire this image — see the "Data note"
 # in README.md and docs/DEPLOYMENT.md.
 
 FROM python:3.11-slim

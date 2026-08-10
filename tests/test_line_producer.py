@@ -13,7 +13,14 @@ import pytest
 
 from backlot.config import DATA_DIR, get_settings
 from backlot.orchestrator import build_line_producer
-from backlot.schemas import ProductionPackage
+from backlot.schemas import (
+    ApprovalDecision,
+    BudgetEstimate,
+    ResourcePlan,
+    RiskReport,
+    Schedule,
+    ScriptBreakdown,
+)
 
 
 def test_build_line_producer_wires_the_full_crew():
@@ -55,17 +62,20 @@ async def test_pipeline_produces_a_grounded_scheduled_approved_package(mcp_shim_
 
     # auto_approve=True: this is an automated test run, not an interactive
     # terminal, so it must not block on the CLI approval prompt.
-    package = await run_line_producer(screenplay_text, auto_approve=True)
+    artifacts, error = await run_line_producer(screenplay_text, auto_approve=True)
 
-    assert isinstance(package, ProductionPackage)
-    assert package.schedule.total_shoot_days > 0
-    assert package.schedule.unscheduled_scenes == []
-    scheduled = {n for day in package.schedule.days for n in day.scene_numbers}
-    expected = {s.scene_number for s in package.breakdown.scenes}
+    assert error is None, f"pipeline stopped early: {error}"
+
+    breakdown = ScriptBreakdown.model_validate(artifacts["breakdown"])
+    schedule = Schedule.model_validate(artifacts["schedule"])
+    assert schedule.total_shoot_days > 0
+    assert schedule.unscheduled_scenes == []
+    scheduled = {n for day in schedule.days for n in day.scene_numbers}
+    expected = {s.scene_number for s in breakdown.scenes}
     assert scheduled == expected
 
-    assert package.budget is not None
-    assert package.risk_report is not None
-    assert package.approval is not None
-    assert package.approval.approved is True
-    assert package.resources is not None
+    assert BudgetEstimate.model_validate(artifacts["budget"])
+    assert RiskReport.model_validate(artifacts["risk_report"])
+    approval = ApprovalDecision.model_validate(artifacts["approval"])
+    assert approval.approved is True
+    assert ResourcePlan.model_validate(artifacts["resources"])

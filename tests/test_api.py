@@ -25,6 +25,13 @@ def test_sample_screenplay_endpoint_returns_text():
         assert "THE HANDOFF" in res.json()["screenplay"]
 
 
+def test_replan_demo_screenplay_endpoint_returns_text():
+    with TestClient(app) as client:
+        res = client.get("/api/replan-demo-screenplay")
+        assert res.status_code == 200
+        assert "THE LONG NIGHT" in res.json()["screenplay"]
+
+
 def test_create_run_rejects_empty_screenplay():
     with TestClient(app) as client:
         res = client.post("/api/runs", json={"screenplay": "   "})

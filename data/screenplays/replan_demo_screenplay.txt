@@ -1,0 +1,100 @@
+THE LONG NIGHT
+
+Original short screenplay written for BACKLOT test fixtures, purpose-built
+to trigger the bounded re-plan loop (see backlot/orchestrator/
+line_producer.py): six consecutive EXT/NIGHT scenes, each at a distinct
+location, produce six consecutive night shoot days -- past the Risk/
+Continuity agent's "more than three consecutive night shoot days" bar for
+requesting a re-plan. Characters and events are fictional.
+
+
+1     EXT. ROOFTOP HELIPAD - NIGHT
+
+Wind hammers a corrugated helipad twelve stories up. DAX (30s, wiry,
+bleeding from one hand) sprints for the far ledge as a SPOTLIGHT sweeps
+the tarmac behind him. Sirens rise from the street below.
+
+                    DAX
+          (into a cracked earpiece)
+          I'm exposed. Moving to the fire
+          escape.
+
+He vaults a low railing and drops out of frame.
+
+
+2     EXT. FIRE ESCAPE ALLEY - NIGHT
+
+Dax lands hard on a rusted fire escape landing, three stories above a
+narrow alley. He half-climbs, half-falls down the switchback stairs,
+boots ringing on wet metal. Below, a WATCHMAN swings a flashlight beam
+across the alley mouth.
+
+                    WATCHMAN
+          Hey! Stop right there!
+
+Dax drops the last eight feet, rolls, and keeps moving.
+
+
+3     EXT. SUBWAY RAIL YARD - NIGHT
+
+Dax vaults a chain-link fence into a sprawling rail yard -- dozens of
+freight cars standing dark and silent under sodium lights. He weaves
+between them, checking over his shoulder. Flashlight beams bob between
+the cars in the distance; the pursuit hasn't lost him.
+
+He ducks under a coupling and presses flat against a graffiti-scarred
+hopper car as a security patrol truck rolls past, tires crunching gravel.
+He waits. Counts. Moves again, faster now, cutting diagonally across a
+dozen sets of track, boots catching on loose ballast stone. A distant
+whistle. Another patrol beam swings wide and nearly catches him -- he
+drops, rolls beneath a stationary tanker car, comes up running on the far
+side. The yard seems to stretch forever, track after track after track,
+each crossing a fresh roll of the dice. At the perimeter fence he scales
+it in one motion, drops hard on the other side, and doesn't look back.
+
+
+4     EXT. RIVERFRONT PIER - NIGHT
+
+Dax staggers out onto a weathered pier, black water slapping the pilings.
+A shape idles at the far end -- a runabout boat, engine already turning
+over. RUIZ (40s, steady) waves him aboard without a word.
+
+
+5     EXT. PARKING STRUCTURE ROOF - NIGHT
+
+Later. Dax and Ruiz jog up a final ramp onto the open top level of a
+parking structure, the whole city spread out cold and glittering below.
+
+                    RUIZ
+          Car's two levels down. We're
+          not clear yet.
+
+                    DAX
+          Then let's not stop.
+
+
+6     EXT. ABANDONED RAIL BRIDGE - NIGHT
+
+Dax and Ruiz cross a rusted trestle bridge on foot, girders groaning
+underfoot, a single work light flickering somewhere far below. Halfway
+across, Dax stops, listens -- no sirens now. Just wind in the ironwork.
+
+                    DAX
+          ...I think that's it.
+
+
+7     INT. SAFEHOUSE KITCHEN - DAY
+
+Morning light through a taped-over window. Dax sits at a scarred table
+while Ruiz bandages the cut on his hand. Both are wrecked, relieved,
+alive.
+
+                    RUIZ
+          Six locations in one night.
+          Nobody's going to believe this
+          shoot schedule.
+
+                    DAX
+          (a tired half-smile)
+          Then it's a good thing it's
+          already over.

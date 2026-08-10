@@ -10,6 +10,7 @@ from google.adk.agents import LlmAgent
 
 from ..config import Settings
 from ..schemas import ScriptBreakdown
+from ._model import build_model
 
 INSTRUCTION = """\
 You are the Script Supervisor on a film production crew. You will be given \
@@ -54,7 +55,7 @@ with it.
 def build_script_supervisor(settings: Settings) -> LlmAgent:
     return LlmAgent(
         name="script_supervisor",
-        model=settings.gemini_model_pro,
+        model=build_model(settings.gemini_model_pro),
         description=(
             "Parses a full screenplay into a structured, scene-by-scene "
             "production breakdown (INT/EXT, day/night, cast, props, "

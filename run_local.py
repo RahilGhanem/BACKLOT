@@ -12,7 +12,9 @@ Usage:
 
 This bypasses Agent Engine entirely and uses ADK's InMemoryRunner + an
 in-memory session, so it works with nothing more than a Gemini credential
-in .env.
+in .env. Progress prints live as each crew member runs; if a run stops
+early (e.g. a quota limit), whatever state was produced up to that point
+is still written out rather than lost.
 """
 
 from __future__ import annotations
@@ -23,18 +25,56 @@ import json
 import uuid
 from pathlib import Path
 
+from google.adk.agents import RunConfig
 from google.adk.agents.base_agent import BaseAgent
+from google.adk.events import Event
 from google.adk.runners import InMemoryRunner
 from google.genai import types
 
+from backlot.agents._mcp import check_mcp_reachable
 from backlot.agents.approval_gate import auto_approve_decider, cli_approval_decider
-from backlot.agents.script_supervisor import build_script_supervisor
 from backlot.config import DATA_DIR, OUTPUT_DIR, get_settings
 from backlot.orchestrator import build_line_producer
-from backlot.schemas import ProductionPackage, ScriptBreakdown
+from backlot.agents.script_supervisor import build_script_supervisor
+from backlot.schemas import ScriptBreakdown
+
+# Every key an agent might write into shared session state, in pipeline
+# order — used to salvage a partial package if a run stops early.
+_ARTIFACT_KEYS = [
+    "breakdown",
+    "previz",
+    "schedule",
+    "budget",
+    "risk_report",
+    "approval",
+    "resources",
+]
 
 
-async def _run_agent_and_get_state(agent: BaseAgent, screenplay_text: str, state_key: str) -> dict:
+def _print_event(event: Event) -> None:
+    text = None
+    if event.content and event.content.parts:
+        for part in event.content.parts:
+            if part.text:
+                text = part.text
+                break
+    tool_calls = [fc.name for fc in event.get_function_calls()]
+    line = f"  [{event.author}]"
+    if tool_calls:
+        line += f" calling {', '.join(tool_calls)}"
+    if text:
+        line += f" {text}"
+    print(line)
+
+
+async def _run_agent(
+    agent: BaseAgent, screenplay_text: str
+) -> tuple[dict, Exception | None]:
+    """Runs `agent`, printing live progress, and returns whatever known
+    artifact keys exist in session state afterward, plus the exception if
+    the run stopped early (a quota limit, a model error, etc.) — partial
+    results are still useful and are never silently discarded.
+    """
     settings = get_settings()
     runner = InMemoryRunner(agent=agent, app_name=settings.app_name)
 
@@ -46,40 +86,56 @@ async def _run_agent_and_get_state(agent: BaseAgent, screenplay_text: str, state
 
     message = types.Content(role="user", parts=[types.Part(text=screenplay_text)])
 
-    async for _event in runner.run_async(
-        user_id=user_id, session_id=session_id, new_message=message
-    ):
-        pass  # agents write their results into session state via output_key / state_delta
+    # Hard safety cap: a runaway tool-calling loop shouldn't be able to
+    # burn through a whole day's free-tier quota in a single run (default
+    # RunConfig.max_llm_calls is 500 — far too loose for e.g. a
+    # 20-requests/day account).
+    run_config = RunConfig(max_llm_calls=settings.max_llm_calls_per_run)
+
+    error: Exception | None = None
+    try:
+        async for event in runner.run_async(
+            user_id=user_id, session_id=session_id, new_message=message, run_config=run_config
+        ):
+            _print_event(event)
+    except Exception as exc:  # noqa: BLE001 - surfaced to the caller, not swallowed
+        error = exc
+        print(f"\n  !! Run stopped early: {exc}\n")
 
     session = await runner.session_service.get_session(
         app_name=settings.app_name, user_id=user_id, session_id=session_id
     )
-    data = session.state.get(state_key) if session else None
-    if data is None:
-        raise RuntimeError(
-            f"Pipeline produced no '{state_key}' state. Check the agent "
-            "output above for errors."
-        )
-    return data
+    state = session.state if session else {}
+    artifacts = {key: state[key] for key in _ARTIFACT_KEYS if key in state}
+    return artifacts, error
 
 
 async def run_script_supervisor(screenplay_text: str) -> ScriptBreakdown:
     settings = get_settings()
     settings.require_llm_credentials()
     agent = build_script_supervisor(settings)
-    data = await _run_agent_and_get_state(agent, screenplay_text, "breakdown")
-    return ScriptBreakdown.model_validate(data)
+    artifacts, error = await _run_agent(agent, screenplay_text)
+    if "breakdown" not in artifacts:
+        raise RuntimeError(
+            "Script Supervisor produced no 'breakdown' state."
+            + (f" Underlying error: {error}" if error else "")
+        )
+    return ScriptBreakdown.model_validate(artifacts["breakdown"])
 
 
 async def run_line_producer(
     screenplay_text: str, auto_approve: bool = False, with_previz: bool = False
-) -> ProductionPackage:
+) -> tuple[dict, Exception | None]:
+    """Returns the raw artifact dict (not a validated ProductionPackage) so
+    a partial run — some steps done, one still missing — can still be
+    written out. main() assembles/prints from whatever's present.
+    """
     settings = get_settings()
     settings.require_llm_credentials()
+    check_mcp_reachable(settings)
     decider = auto_approve_decider if auto_approve else cli_approval_decider
     agent = build_line_producer(settings, approval_decider=decider, include_previz=with_previz)
-    data = await _run_agent_and_get_state(agent, screenplay_text, "package")
-    return ProductionPackage.model_validate(data)
+    return await _run_agent(agent, screenplay_text)
 
 
 def main() -> None:
@@ -128,27 +184,44 @@ def main() -> None:
         print(f"'{breakdown.title}' -> {len(breakdown.scenes)} scenes, "
               f"{breakdown.total_estimated_pages} estimated pages")
         print(f"Breakdown written to {out}")
-    else:
-        out = args.out or (OUTPUT_DIR / "package.json")
-        package = asyncio.run(
-            run_line_producer(
-                screenplay_text, auto_approve=args.auto_approve, with_previz=args.with_previz
-            )
+        return
+
+    out = args.out or (OUTPUT_DIR / "package.json")
+    artifacts, error = asyncio.run(
+        run_line_producer(
+            screenplay_text, auto_approve=args.auto_approve, with_previz=args.with_previz
         )
-        out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(json.dumps(package.model_dump(), indent=2), encoding="utf-8")
-        print(f"'{package.title}' -> {len(package.breakdown.scenes)} scenes, "
-              f"{package.schedule.total_shoot_days} shoot day(s)")
-        if package.approval:
-            print(f"Approval: {'approved' if package.approval.approved else 'rejected'} "
-                  f"({package.approval.reason})")
-        if package.previz:
-            print(f"Previz: {len(package.previz.storyboard_paths)} storyboard(s), "
-                  f"animatic={'yes' if package.previz.animatic_path else 'no'}, "
-                  f"music={'yes' if package.previz.music_cue_path else 'no'}")
-            for warning in package.previz.warnings:
-                print(f"  warning: {warning}")
-        print(f"Package written to {out}")
+    )
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(artifacts, indent=2), encoding="utf-8")
+
+    if "breakdown" in artifacts:
+        breakdown = artifacts["breakdown"]
+        print(f"'{breakdown['title']}' -> {len(breakdown['scenes'])} scenes")
+    if "schedule" in artifacts:
+        print(f"Scheduled across {artifacts['schedule']['total_shoot_days']} shoot day(s)")
+    if "budget" in artifacts:
+        print(f"Budget: {artifacts['budget']['currency']} "
+              f"{artifacts['budget']['total_estimated_cost']:,.0f}")
+    if "approval" in artifacts:
+        approval = artifacts["approval"]
+        print(f"Approval: {'approved' if approval['approved'] else 'rejected'} "
+              f"({approval['reason']})")
+    if "resources" in artifacts:
+        print("Resources: proposed")
+    if "previz" in artifacts:
+        previz = artifacts["previz"]
+        print(f"Previz: {len(previz['storyboard_paths'])} storyboard(s), "
+              f"animatic={'yes' if previz['animatic_path'] else 'no'}, "
+              f"music={'yes' if previz['music_cue_path'] else 'no'}")
+        for warning in previz["warnings"]:
+            print(f"  warning: {warning}")
+
+    if error is not None:
+        print(f"\nRun stopped early ({type(error).__name__}); "
+              f"partial results above were still written to {out}.")
+    else:
+        print(f"\nPackage written to {out}")
 
 
 if __name__ == "__main__":
