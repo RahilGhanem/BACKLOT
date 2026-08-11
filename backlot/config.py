@@ -177,8 +177,20 @@ def get_settings() -> Settings:
     return Settings(
         gemini_model_flash=os.getenv("GEMINI_MODEL_FLASH", "gemini-3.6-flash"),
         gemini_model_pro=os.getenv("GEMINI_MODEL_PRO", "gemini-3.6-flash"),
-        imagen_model=os.getenv("IMAGEN_MODEL", "imagen-4.0-generate-001"),
-        veo_model=os.getenv("VEO_MODEL", "veo-3.1-generate-preview"),
+        # gemini-2.5-flash-image ("Nano Banana") replaces the old default,
+        # imagen-4.0-generate-001 -- every Imagen 4 generate-family id has a
+        # "Discontinuation date: June 30, 2026" per Google Cloud's own
+        # Vertex AI docs, already past. This is a real, current model id
+        # (verified in the installed google-genai SDK's own Model type),
+        # but note it's called through a different code path than a plain
+        # Imagen id would be -- see backlot/tools/previz_generation.py's
+        # generate_storyboards() docstring.
+        imagen_model=os.getenv("IMAGEN_MODEL", "gemini-2.5-flash-image"),
+        # veo-3.1-generate-001 is the current GA id (the old default,
+        # veo-3.1-generate-preview, was a preview endpoint deprecated with a
+        # migration deadline of April 2, 2026 -- already past). Verified
+        # against Google Cloud's Vertex AI release notes.
+        veo_model=os.getenv("VEO_MODEL", "veo-3.1-generate-001"),
         lyria_model=os.getenv("LYRIA_MODEL", "lyria-3-clip-preview"),
         use_vertexai=_enterprise_mode_enabled(),
         google_api_key=os.getenv("GOOGLE_API_KEY", ""),

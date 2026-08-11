@@ -22,6 +22,7 @@ from google.adk.agents.base_agent import BaseAgent
 from google.adk.agents.invocation_context import InvocationContext
 from google.adk.events import Event, EventActions
 from google.genai import types
+from pydantic import ValidationError
 
 from ..agents.approval_gate import ApprovalDecider, build_approval_gate, cli_approval_decider
 from ..agents.budget import build_budget_agent
@@ -39,6 +40,15 @@ MIN_PAGES_PER_DAY = 2.0
 MAX_PAGES_PER_DAY_CEILING = 8.0
 REPLAN_SHRINK_FACTOR = 0.85
 MAX_REPLANS = 2
+
+# Bounded corrective retries for a single malformed RiskReport turn -- e.g.
+# replan_requested=True with zero flags, which RiskReport's own
+# model_validator (backlot/schemas/risk.py) correctly rejects rather than
+# silently accepting. This is distinct from MAX_REPLANS above: MAX_REPLANS
+# re-runs the whole Scheduler/Budget/Risk cycle because the SCHEDULE needs
+# to change; this retries just the Risk Agent because ITS OWN structured
+# output was invalid, independent of whether a re-plan is actually needed.
+MAX_RISK_VALIDATION_RETRIES = 2
 
 _NIGHT_BUCKET = {TimeOfDay.NIGHT, TimeOfDay.DUSK}
 
@@ -64,6 +74,82 @@ def _schedule_fingerprint(schedule: Schedule) -> tuple:
 
 class LineProducer(BaseAgent):
     max_replans: int = MAX_REPLANS
+
+    async def _run_risk_agent_with_retry(
+        self, ctx: InvocationContext, risk_agent: BaseAgent
+    ) -> AsyncGenerator[Event, None]:
+        """Runs risk_agent, retrying with corrective guidance if its
+        structured output fails RiskReport's schema validation.
+
+        A well-formed-JSON-but-logically-contradictory response (e.g.
+        replan_requested=True with zero flags) is an observed Gemini Flash
+        failure mode, not a hypothetical one -- ADK's own output-schema
+        validation (google.adk.utils._schema_utils.validate_schema) calls
+        RiskReport.model_validate_json() during event processing, and a
+        pydantic.ValidationError there propagates straight out of
+        risk_agent.run_async() before anything gets yielded, no different
+        from any other uncaught exception. The fix is not to weaken
+        RiskReport's validator (backlot/schemas/risk.py) -- it's correctly
+        rejecting a genuinely contradictory report -- it's to give the model
+        a bounded chance to correct itself, the same way a person would be
+        asked to redo contradictory paperwork rather than have the
+        contradiction quietly waved through.
+
+        Bounded at MAX_RISK_VALIDATION_RETRIES: a model that keeps
+        contradicting itself doesn't get an unbounded retry loop, it gets a
+        clear RuntimeError instead (never a silently fabricated flag, never
+        a hardcoded schedule_feasible/replan_requested value).
+        """
+        # Clear any stale note from a previous re-plan attempt's own retry
+        # episode -- each fresh call here should start clean rather than
+        # showing the model a "your previous response was rejected" note
+        # left over from a different (already-resolved) attempt.
+        if ctx.session.state.get("risk_validation_retry_note"):
+            yield Event(
+                invocation_id=ctx.invocation_id,
+                author=self.name,
+                branch=ctx.branch,
+                actions=EventActions(state_delta={"risk_validation_retry_note": None}),
+            )
+
+        for attempt in range(MAX_RISK_VALIDATION_RETRIES + 1):
+            try:
+                async for event in risk_agent.run_async(ctx):
+                    yield event
+                return
+            except ValidationError as exc:
+                if attempt == MAX_RISK_VALIDATION_RETRIES:
+                    raise RuntimeError(
+                        f"{risk_agent.name} produced a RiskReport that failed schema "
+                        f"validation {MAX_RISK_VALIDATION_RETRIES + 1} time(s) in a "
+                        f"row and did not self-correct: {exc}"
+                    ) from exc
+                # Feed the SPECIFIC validation failure back to the model so
+                # the retry is a genuine correction, not a blind resample --
+                # risk.py's instruction surfaces this note prominently.
+                yield Event(
+                    invocation_id=ctx.invocation_id,
+                    author=self.name,
+                    branch=ctx.branch,
+                    content=types.Content(role="model", parts=[types.Part(text=(
+                        f"{risk_agent.name}'s response failed schema validation "
+                        f"(attempt {attempt + 1}/{MAX_RISK_VALIDATION_RETRIES + 1}); "
+                        "retrying with corrective guidance."
+                    ))]),
+                    actions=EventActions(state_delta={
+                        "risk_validation_retry_note": (
+                            f"Your previous response was REJECTED by schema "
+                            f"validation: {exc} Fix this in your next response: "
+                            "if schedule_feasible=false or replan_requested=true, "
+                            "include at least one flag in `flags` that justifies "
+                            "it (severity='high', with a real description and "
+                            "recommendation, if replan_requested=true); if the "
+                            "schedule genuinely has no structural problem, set "
+                            "schedule_feasible=true and replan_requested=false "
+                            "instead of guessing."
+                        )
+                    }),
+                )
 
     async def _run_async_impl(
         self, ctx: InvocationContext
@@ -96,7 +182,7 @@ class LineProducer(BaseAgent):
                 yield event
             async for event in budget_agent.run_async(ctx):
                 yield event
-            async for event in risk_agent.run_async(ctx):
+            async for event in self._run_risk_agent_with_retry(ctx, risk_agent):
                 yield event
 
             risk_data = ctx.session.state.get("risk_report") or {}

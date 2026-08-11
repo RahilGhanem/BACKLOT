@@ -23,7 +23,13 @@ from backlot.agents.approval_gate import build_approval_gate
 from backlot.agents.package_assembler import build_package_assembler
 from backlot.agents.scheduler import FirstADScheduler
 from backlot.config import get_settings
-from backlot.orchestrator.line_producer import MAX_REPLANS, REPLAN_SHRINK_FACTOR, LineProducer
+from backlot.orchestrator.line_producer import (
+    MAX_REPLANS,
+    MAX_RISK_VALIDATION_RETRIES,
+    REPLAN_SHRINK_FACTOR,
+    LineProducer,
+)
+from backlot.schemas import RiskReport
 
 
 class _FakeStateAgent(BaseAgent):
@@ -100,7 +106,64 @@ _RISK_REPLAN = {
     "replan_reason": "test forces a replan every time",
 }
 
+_RISK_NO_REPLAN = {
+    "title": "TEST",
+    "schedule_feasible": True,
+    "flags": [],
+    "replan_requested": False,
+    "replan_reason": "",
+}
+
 _RESOURCES = {"title": "TEST", "crew_picks": [], "location_picks": []}
+
+
+class _FailValidationThenSucceedAgent(BaseAgent):
+    """Reproduces ADK's own real failure mode -- a pydantic.ValidationError
+    raised from output-schema validation during event processing -- for its
+    first `fail_times` calls, then succeeds with `success_value`. Used to
+    test LineProducer._run_risk_agent_with_retry's corrective-retry loop
+    without needing a real, non-deterministic LLM call."""
+
+    state_key: str
+    fail_times: int
+    success_value: dict
+    call_count: int = 0
+
+    async def _run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None]:
+        self.call_count += 1
+        if self.call_count <= self.fail_times:
+            # Trigger a genuine pydantic.ValidationError the same way ADK's
+            # own validate_schema() does from a contradictory model
+            # response (schedule_feasible=False + replan_requested=True +
+            # zero flags), rather than hand-constructing one.
+            RiskReport.model_validate(
+                {"title": "TEST", "schedule_feasible": False, "flags": [], "replan_requested": True}
+            )
+            return  # pragma: no cover -- model_validate above always raises
+        yield Event(
+            invocation_id=ctx.invocation_id,
+            author=self.name,
+            branch=ctx.branch,
+            content=types.Content(role="model", parts=[types.Part(text=f"{self.name} ran")]),
+            actions=EventActions(state_delta={self.state_key: self.success_value}),
+        )
+
+
+def _build_line_producer_with_risk_agent(risk_agent) -> LineProducer:
+    scheduler = FirstADScheduler(name="first_ad_scheduler", max_pages_per_day=5.0)
+    return LineProducer(
+        name="line_producer",
+        max_replans=MAX_REPLANS,
+        sub_agents=[
+            _FakeStateAgent(name="script_supervisor", state_key="breakdown", values=[_BREAKDOWN]),
+            scheduler,
+            _FakeStateAgent(name="budget_agent", state_key="budget", values=[_BUDGET]),
+            risk_agent,
+            build_approval_gate(decider=lambda budget: (True, "test auto-approve")),
+            _FakeStateAgent(name="resource_agent", state_key="resources", values=[_RESOURCES]),
+            build_package_assembler(),
+        ],
+    )
 
 
 def _build_test_line_producer(*, approved: bool) -> tuple[LineProducer, FirstADScheduler]:
@@ -176,3 +239,45 @@ async def test_rejected_budget_skips_resource_agent():
     assert state["approval"]["approved"] is False
     assert resource_agent.call_count == 0
     assert state["package"]["resources"] is None
+
+
+@pytest.mark.asyncio
+async def test_risk_validation_failure_triggers_a_bounded_retry_then_succeeds():
+    """A Risk Agent whose structured output fails schema validation twice
+    (the observed Gemini Flash failure mode: schedule_feasible=False /
+    replan_requested=True with zero flags) must be retried with corrective
+    guidance and the run must still complete -- not crash outright. See
+    LineProducer._run_risk_agent_with_retry."""
+    risk_agent = _FailValidationThenSucceedAgent(
+        name="risk_agent", state_key="risk_report", fail_times=2, success_value=_RISK_NO_REPLAN
+    )
+    line_producer = _build_line_producer_with_risk_agent(risk_agent)
+
+    state = await _run(line_producer)
+
+    # MAX_RISK_VALIDATION_RETRIES=2 -> fails twice, succeeds on the 3rd call.
+    assert risk_agent.call_count == MAX_RISK_VALIDATION_RETRIES + 1
+    assert state["package"]["risk_report"]["replan_requested"] is False
+    # The retry is scoped to the Risk Agent alone -- the outer re-plan loop
+    # (which re-runs Scheduler/Budget/Risk together) never had to fire;
+    # budget_agent was called exactly once.
+    budget_agent = line_producer.sub_agents[2]
+    assert budget_agent.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_risk_validation_failure_exhausts_retries_and_raises_clearly():
+    """If the Risk Agent never produces a valid RiskReport, the run must
+    fail with a clear, bounded error -- never hang, never silently
+    fabricate a flag or hardcode schedule_feasible/replan_requested just to
+    satisfy validation."""
+    risk_agent = _FailValidationThenSucceedAgent(
+        name="risk_agent", state_key="risk_report", fail_times=999, success_value=_RISK_NO_REPLAN
+    )
+    line_producer = _build_line_producer_with_risk_agent(risk_agent)
+
+    with pytest.raises(RuntimeError, match="failed schema validation"):
+        await _run(line_producer)
+
+    # Gives up after MAX_RISK_VALIDATION_RETRIES + 1 attempts, not more.
+    assert risk_agent.call_count == MAX_RISK_VALIDATION_RETRIES + 1

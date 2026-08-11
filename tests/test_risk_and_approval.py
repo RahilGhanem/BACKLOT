@@ -113,3 +113,4 @@ def test_risk_report_accepts_replan_justified_by_a_high_severity_flag():
 def test_risk_report_allows_feasible_true_with_zero_flags():
     report = RiskReport(title="TEST", schedule_feasible=True, flags=[])
     assert report.flags == []
+    assert report.replan_requested is False
