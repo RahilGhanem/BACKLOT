@@ -26,6 +26,8 @@
   /* Three stops are illegible at 6px, so meters use two. */
   --gradient-meter: linear-gradient(90deg, var(--g-blue), var(--g-purple));
 
+  --wordmark: linear-gradient(95deg, #ff4fb8 0%, #ff7ae2 45%, #ffa6ec 100%);
+
   --accent: #8ab4f8;
   --accent-2: #c58af9;
   --accent-soft: rgba(138, 180, 248, 0.20);
@@ -58,6 +60,7 @@
 
   /* Google Sans where the platform ships it, Roboto otherwise. */
   --font: "Google Sans", "Google Sans Text", Roboto, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-display: "Bebas Neue", "Haettenschweiler", "Arial Narrow Bold", Impact, sans-serif;
   --mono: "Roboto Mono", ui-monospace, "Cascadia Code", "SFMono-Regular", Consolas, monospace;
 
   --rail-w: 208px;
@@ -132,13 +135,15 @@ svg.icon-lg { width: 1.6em; height: 1.6em; }
   display: flex; align-items: center; gap: var(--s5);
 }
 .brand { display: flex; align-items: center; gap: var(--s3); min-width: 0; }
-.brand-mark { width: 34px; height: 34px; border-radius: 9px; object-fit: cover; }
+.brand-text { display: flex; align-items: center; }
+.brand-mark { width: 32px; height: 32px; border-radius: 9px; object-fit: contain; }
 .brand-text h1 {
-  font-size: 1.02rem; letter-spacing: 0.16em; font-weight: 700;
-  background: var(--gradient); -webkit-background-clip: text;
+  font-family: var(--font-display);
+  font-size: 1.85rem; font-weight: 400; letter-spacing: 0.13em; line-height: 1;
+  background: var(--wordmark); -webkit-background-clip: text;
   background-clip: text; color: transparent;
+  padding-right: 0.1em;
 }
-.brand-text p { font-size: 0.72rem; color: var(--muted-2); }
 
 .stepper { display: flex; gap: var(--s1); font-size: 0.76rem; margin-left: auto; }
 .stepper li {
