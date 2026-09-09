@@ -1,0 +1,646 @@
+{
+  "breakdown": {
+    "title": "THE HANDOFF",
+    "total_estimated_pages": 1.625,
+    "scenes": [
+      {
+        "scene_number": "1",
+        "sequence_index": 0,
+        "slugline": "EXT. INDUSTRIAL LOT - NIGHT",
+        "int_ext": "EXT",
+        "time_of_day": "NIGHT",
+        "location": "INDUSTRIAL LOT",
+        "synopsis": "Mara sits inside an idling cargo van in a dark lot, nervously waiting and trying to use a walkie-talkie.",
+        "cast": [
+          "MARA"
+        ],
+        "props": [
+          "cheap wristwatch",
+          "walkie-talkie"
+        ],
+        "vehicles": [
+          "CARGO VAN"
+        ],
+        "vfx": [],
+        "stunts": [],
+        "estimated_page_count": 0.25,
+        "notes": "Night exterior shoot. Vehicles active on set."
+      },
+      {
+        "scene_number": "2",
+        "sequence_index": 1,
+        "slugline": "INT. CARGO VAN - CONTINUOUS",
+        "int_ext": "INT",
+        "time_of_day": "CONTINUOUS",
+        "location": "CARGO VAN",
+        "synopsis": "Mara nervously plays with her flashlight in the cluttered van until Desh crackles through the walkie-talkie to signal him being close.",
+        "cast": [
+          "MARA",
+          "DESH"
+        ],
+        "props": [
+          "fast food wrappers",
+          "road atlas",
+          "DUFFEL BAG",
+          "FLASHLIGHT",
+          "walkie-talkie"
+        ],
+        "vehicles": [
+          "CARGO VAN"
+        ],
+        "vfx": [],
+        "stunts": [],
+        "estimated_page_count": 0.25,
+        "notes": ""
+      },
+      {
+        "scene_number": "3",
+        "sequence_index": 2,
+        "slugline": "EXT. WAREHOUSE DOCK - NIGHT",
+        "int_ext": "EXT",
+        "time_of_day": "NIGHT",
+        "location": "WAREHOUSE DOCK",
+        "synopsis": "Desh sneaks past a security guard's flashlight sweep while carrying a second duffel bag.",
+        "cast": [
+          "DESH",
+          "GUARD"
+        ],
+        "props": [
+          "DUFFEL BAG",
+          "flashlight"
+        ],
+        "vehicles": [],
+        "vfx": [],
+        "stunts": [],
+        "estimated_page_count": 0.375,
+        "notes": "Night exterior shoot. Stealth/evasion action."
+      },
+      {
+        "scene_number": "4",
+        "sequence_index": 3,
+        "slugline": "EXT. HIGHWAY - NIGHT",
+        "int_ext": "EXT",
+        "time_of_day": "NIGHT",
+        "location": "HIGHWAY",
+        "synopsis": "The cargo van speeds down a dark, empty two-lane highway as rain begins to fall.",
+        "cast": [],
+        "props": [],
+        "vehicles": [
+          "cargo van"
+        ],
+        "vfx": [
+          "rain"
+        ],
+        "stunts": [],
+        "estimated_page_count": 0.125,
+        "notes": "Night exterior. Moving vehicle, wet down / rain machine SFX."
+      },
+      {
+        "scene_number": "4",
+        "sequence_index": 4,
+        "slugline": "INT. CARGO VAN - CONTINUOUS",
+        "int_ext": "INT",
+        "time_of_day": "CONTINUOUS",
+        "location": "CARGO VAN",
+        "synopsis": "Desh climbs into the back of the moving van, bringing the second duffel bag inside, and tells Mara they are clean.",
+        "cast": [
+          "MARA",
+          "DESH"
+        ],
+        "props": [
+          "duffel bags"
+        ],
+        "vehicles": [
+          "cargo van"
+        ],
+        "vfx": [],
+        "stunts": [],
+        "estimated_page_count": 0.25,
+        "notes": "Interior vehicle work, continuous motion."
+      },
+      {
+        "scene_number": "5",
+        "sequence_index": 5,
+        "slugline": "INT. LOU'S GARAGE - DAY",
+        "int_ext": "INT",
+        "time_of_day": "DAY",
+        "location": "LOU'S GARAGE",
+        "synopsis": "Lou unzips a duffel bag to check the contents, then slides a briefcase full of cash to Mara and Desh.",
+        "cast": [
+          "LOU",
+          "MARA",
+          "DESH"
+        ],
+        "props": [
+          "tools",
+          "work light",
+          "duffel bag",
+          "battered BRIEFCASE",
+          "banded cash"
+        ],
+        "vehicles": [
+          "stripped-down sedan"
+        ],
+        "vfx": [],
+        "stunts": [],
+        "estimated_page_count": 0.375,
+        "notes": ""
+      }
+    ],
+    "unique_cast": [
+      "MARA",
+      "DESH",
+      "GUARD",
+      "LOU"
+    ],
+    "unique_locations": [
+      "INDUSTRIAL LOT",
+      "CARGO VAN",
+      "WAREHOUSE DOCK",
+      "HIGHWAY",
+      "LOU'S GARAGE"
+    ]
+  },
+  "schedule": {
+    "title": "THE HANDOFF",
+    "max_pages_per_day": 5.882352941176471,
+    "total_shoot_days": 5,
+    "days": [
+      {
+        "day_number": 1,
+        "location": "INDUSTRIAL LOT",
+        "int_ext": "EXT",
+        "time_of_day": "NIGHT",
+        "scene_numbers": [
+          "1"
+        ],
+        "total_pages": 0.25,
+        "cast_called": [
+          "MARA"
+        ],
+        "notes": ""
+      },
+      {
+        "day_number": 2,
+        "location": "CARGO VAN",
+        "int_ext": "INT",
+        "time_of_day": "NIGHT",
+        "scene_numbers": [
+          "2",
+          "4"
+        ],
+        "total_pages": 0.5,
+        "cast_called": [
+          "DESH",
+          "MARA"
+        ],
+        "notes": ""
+      },
+      {
+        "day_number": 3,
+        "location": "WAREHOUSE DOCK",
+        "int_ext": "EXT",
+        "time_of_day": "NIGHT",
+        "scene_numbers": [
+          "3"
+        ],
+        "total_pages": 0.375,
+        "cast_called": [
+          "DESH",
+          "GUARD"
+        ],
+        "notes": ""
+      },
+      {
+        "day_number": 4,
+        "location": "HIGHWAY",
+        "int_ext": "EXT",
+        "time_of_day": "NIGHT",
+        "scene_numbers": [
+          "4"
+        ],
+        "total_pages": 0.125,
+        "cast_called": [],
+        "notes": ""
+      },
+      {
+        "day_number": 5,
+        "location": "LOU'S GARAGE",
+        "int_ext": "INT",
+        "time_of_day": "DAY",
+        "scene_numbers": [
+          "5"
+        ],
+        "total_pages": 0.375,
+        "cast_called": [
+          "DESH",
+          "LOU",
+          "MARA"
+        ],
+        "notes": ""
+      }
+    ],
+    "unscheduled_scenes": [],
+    "solver_notes": "Greedy location/continuity packer, 5.882352941176471 pages/day target. Phase 3 grounds this target in the studio's own past-schedule data via MCP instead of a fixed constant. Attempt 1: 4 consecutive night days found; growing the per-day cap to 5.88 pages so same-location night scenes can consolidate. | Re-plan requested again, but the schedule was unchanged from the previous attempt (fixed point) -- stopping rather than repeating a no-op."
+  },
+  "budget": {
+    "title": "THE HANDOFF - Production Cost Estimate",
+    "currency": "USD",
+    "total_estimated_cost": 209500.0,
+    "line_items": [
+      {
+        "label": "Shoot Day 1: EXT. INDUSTRIAL LOT - NIGHT (Scene 1)",
+        "amount": 38500.0,
+        "currency": "USD",
+        "grounded": true,
+        "source_records": [
+          {
+            "record_id": "EXT_NIGHT_INDUSTRIAL",
+            "summary": "Historical average cost of $38,500/day based on 6 comparable productions (Low Tide, Backlot Nine, Quiet Freight).",
+            "source": "clickhouse:backlot_studio.historical_costs"
+          }
+        ],
+        "notes": "Profile EXT_NIGHT_INDUSTRIAL: Night exterior, industrial/lot setting, minimal cast, practical lighting rig."
+      },
+      {
+        "label": "Shoot Day 2: INT. CARGO VAN - NIGHT (Scenes 2, 4)",
+        "amount": 27200.0,
+        "currency": "USD",
+        "grounded": true,
+        "source_records": [
+          {
+            "record_id": "INT_CONTINUOUS_VEHICLE",
+            "summary": "Historical average cost of $27,200/day based on 9 comparable productions (Backlot Nine, Redline, Two Lane).",
+            "source": "clickhouse:backlot_studio.historical_costs"
+          }
+        ],
+        "notes": "Profile INT_CONTINUOUS_VEHICLE: Interior vehicle (process trailer or insert car), 2-3 cast, night continuity."
+      },
+      {
+        "label": "Shoot Day 3: EXT. WAREHOUSE DOCK - NIGHT (Scene 3)",
+        "amount": 41800.0,
+        "currency": "USD",
+        "grounded": true,
+        "source_records": [
+          {
+            "record_id": "EXT_NIGHT_LOADING_DOCK",
+            "summary": "Historical average cost of $41,800/day based on 5 comparable productions (Quiet Freight, Night Shift).",
+            "source": "clickhouse:backlot_studio.historical_costs"
+          }
+        ],
+        "notes": "Profile EXT_NIGHT_LOADING_DOCK: Night exterior, single-location dock/warehouse exterior, small cast, minor stunts."
+      },
+      {
+        "label": "Shoot Day 4: EXT. HIGHWAY - NIGHT (Scene 4)",
+        "amount": 61200.0,
+        "currency": "USD",
+        "grounded": true,
+        "source_records": [
+          {
+            "record_id": "EXT_NIGHT_HIGHWAY_VEHICLE",
+            "summary": "Historical average cost of $61,200/day based on 4 comparable productions (Two Lane, Redline).",
+            "source": "clickhouse:backlot_studio.historical_costs"
+          }
+        ],
+        "notes": "Profile EXT_NIGHT_HIGHWAY_VEHICLE: Night exterior highway/road work, moving vehicle unit, weather element (rain)."
+      },
+      {
+        "label": "Shoot Day 5: INT. LOU'S GARAGE - DAY (Scene 5)",
+        "amount": 22400.0,
+        "currency": "USD",
+        "grounded": true,
+        "source_records": [
+          {
+            "record_id": "INT_DAY_GARAGE_WORKSHOP",
+            "summary": "Historical average cost of $22,400/day based on 7 comparable productions (Backlot Nine, Cash Value).",
+            "source": "clickhouse:backlot_studio.historical_costs"
+          }
+        ],
+        "notes": "Profile INT_DAY_GARAGE_WORKSHOP: Day interior, practical location (garage/workshop), 3 cast, standard lighting."
+      },
+      {
+        "label": "Vendor: Picture Vehicle (Cargo Van)",
+        "amount": 600.0,
+        "currency": "USD",
+        "grounded": true,
+        "source_records": [
+          {
+            "record_id": "picture_vehicle_cargo_van",
+            "summary": "Coastal Picture Cars ($600.0/day, US-East) and Studio Fleet Services ($650.0/day, US-West).",
+            "source": "clickhouse:backlot_studio.vendor_rates"
+          }
+        ],
+        "notes": "Daily rate card for cargo van picture vehicle ($600/day US-East, $650/day US-West)."
+      },
+      {
+        "label": "Vendor: Rain Effects Unit",
+        "amount": 4500.0,
+        "currency": "USD",
+        "grounded": true,
+        "source_records": [
+          {
+            "record_id": "rain_effects_unit",
+            "summary": "Coastal Weather FX ($4,500.0/day, US-East) and Weathermaker FX ($4,800.0/day, US-West).",
+            "source": "clickhouse:backlot_studio.vendor_rates"
+          }
+        ],
+        "notes": "Daily rate card for rain effects / wet-down package ($4,500/day US-East, $4,800/day US-West)."
+      },
+      {
+        "label": "Vendor: Security (Night Shoot)",
+        "amount": 1100.0,
+        "currency": "USD",
+        "grounded": true,
+        "source_records": [
+          {
+            "record_id": "security_night_shoot",
+            "summary": "Harborline Security ($1,100.0/day, US-East) and Perimeter Watch Security ($1,200.0/day, US-West).",
+            "source": "clickhouse:backlot_studio.vendor_rates"
+          }
+        ],
+        "notes": "Daily rate card for night exterior security detail ($1,100/day US-East, $1,200/day US-West)."
+      },
+      {
+        "label": "Vendor: Camera Package (Pro)",
+        "amount": 5400.0,
+        "currency": "USD",
+        "grounded": true,
+        "source_records": [
+          {
+            "record_id": "camera_package_pro",
+            "summary": "Eastline Cine Rentals ($5,400.0/day, US-East) and Backlot Camera Rentals ($5,800.0/day, US-West).",
+            "source": "clickhouse:backlot_studio.vendor_rates"
+          }
+        ],
+        "notes": "Daily rate card for pro camera package ($5,400/day US-East, $5,800/day US-West)."
+      },
+      {
+        "label": "Vendor: Grip & Electric Package",
+        "amount": 3900.0,
+        "currency": "USD",
+        "grounded": true,
+        "source_records": [
+          {
+            "record_id": "grip_and_electric_package",
+            "summary": "Harborline Lighting Co. ($3,900.0/day, US-East) and Lot 12 Grip & Electric ($4,200.0/day, US-West).",
+            "source": "clickhouse:backlot_studio.vendor_rates"
+          }
+        ],
+        "notes": "Daily rate card for grip and electric package ($3,900/day US-East, $4,200/day US-West)."
+      },
+      {
+        "label": "Vendor: Catering (Full Crew)",
+        "amount": 2900.0,
+        "currency": "USD",
+        "grounded": true,
+        "source_records": [
+          {
+            "record_id": "catering_full_crew",
+            "summary": "Eastline Craft Services ($2,900.0/day, US-East) and Craft & Call Catering ($3,100.0/day, US-West).",
+            "source": "clickhouse:backlot_studio.vendor_rates"
+          }
+        ],
+        "notes": "Daily rate card for full crew catering ($2,900/day US-East, $3,100/day US-West)."
+      },
+      {
+        "label": "Vendor: Picture Vehicle (Stripped-Down Sedan)",
+        "amount": 0.0,
+        "currency": "USD",
+        "grounded": false,
+        "source_records": [],
+        "notes": "No vendor rate matching stripped-down sedan found in backlot_studio.vendor_rates."
+      }
+    ]
+  },
+  "risk_report": {
+    "title": "THE HANDOFF",
+    "schedule_feasible": false,
+    "flags": [
+      {
+        "category": "overtime",
+        "severity": "high",
+        "description": "The current schedule schedules Days 1, 2, 3, and 4 as four consecutive night shoots, which exceeds the safe threshold of three consecutive night shoots and creates crew fatigue.",
+        "affected_scene_numbers": [
+          "1",
+          "2",
+          "3",
+          "4"
+        ],
+        "affected_shoot_days": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "recommendation": "Consolidate the short scenes to eliminate consecutive night shifts. Since the entire script is only 1.625 pages, we can combine several night locations onto single shoot days."
+      },
+      {
+        "category": "weather",
+        "severity": "medium",
+        "description": "Scene 4 on Day 4 is an exterior night highway shoot with moving vehicles and rain VFX/wet-down effects.",
+        "affected_scene_numbers": [
+          "4"
+        ],
+        "affected_shoot_days": [
+          4
+        ],
+        "recommendation": "Secure rain effects equipment, hire wet-down crew, coordinate wet pavement driving safety briefings, and establish a weather backup/contingency plan."
+      },
+      {
+        "category": "budget",
+        "severity": "medium",
+        "description": "The line item 'Vendor: Picture Vehicle (Stripped-Down Sedan)' has grounded=false with an estimate of $0.0 due to missing vendor rate data.",
+        "affected_scene_numbers": [
+          "5"
+        ],
+        "affected_shoot_days": [
+          5
+        ],
+        "recommendation": "Get a manual quote from picture vehicle vendors for the stripped-down sedan to ground the budget item."
+      },
+      {
+        "category": "continuity",
+        "severity": "low",
+        "description": "The cargo van is used on Days 1, 2, and 4, and the duffel bags are used on Days 2, 3, 4, and 5.",
+        "affected_scene_numbers": [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+        ],
+        "affected_shoot_days": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "recommendation": "Assign script supervisor and art department to strictly track state/placement of the duffel bag props and the physical status/debris inside the cargo van."
+      }
+    ],
+    "replan_requested": true,
+    "replan_reason": "Four consecutive night shoot days create high fatigue. Because the total script length is under 2 pages, the scheduler can pack these short scenes into fewer days to avoid a long string of consecutive nights."
+  },
+  "approval": {
+    "approved": true,
+    "reason": "auto-approved (non-interactive mode)"
+  },
+  "resources": {
+    "title": "THE HANDOFF - Crew & Location Resource Plan",
+    "crew_picks": [
+      {
+        "need": "1st Assistant Director (1st AD)",
+        "recommendation": "P. Nakashima (CR-107), $1,100/day, DGA (US-West)",
+        "grounded": true,
+        "source_records": [
+          {
+            "record_id": "CR-107",
+            "summary": "P. Nakashima, 1st AD in US-West, day rate $1,100.0, DGA union.",
+            "source": "clickhouse:backlot_studio.crew_library"
+          }
+        ],
+        "notes": "Lead AD for production scheduling, set operations, and coordination across night shoot locations."
+      },
+      {
+        "need": "Gaffer",
+        "recommendation": "J. Alvarez (CR-101), $950/day, IATSE Local 728 (US-West)",
+        "grounded": true,
+        "source_records": [
+          {
+            "record_id": "CR-101",
+            "summary": "J. Alvarez, Gaffer in US-West, day rate $950.0, IATSE Local 728 union.",
+            "source": "clickhouse:backlot_studio.crew_library"
+          }
+        ],
+        "notes": "Head of lighting, essential for exterior night lighting setups (industrial lot, dock, highway)."
+      },
+      {
+        "need": "Key Grip",
+        "recommendation": "K. Okafor (CR-102), $900/day, IATSE Local 80 (US-West)",
+        "grounded": true,
+        "source_records": [
+          {
+            "record_id": "CR-102",
+            "summary": "K. Okafor, Key Grip in US-West, day rate $900.0, IATSE Local 80 union.",
+            "source": "clickhouse:backlot_studio.crew_library"
+          }
+        ],
+        "notes": "Head of grip department, handles vehicle mounts, camera rigging, and diffusion."
+      },
+      {
+        "need": "Location Manager",
+        "recommendation": "M. Farrow (CR-105), $700/day, non-union (US-West)",
+        "grounded": true,
+        "source_records": [
+          {
+            "record_id": "CR-105",
+            "summary": "M. Farrow, Location Manager in US-West, day rate $700.0, non-union.",
+            "source": "clickhouse:backlot_studio.crew_library"
+          }
+        ],
+        "notes": "Manages site logistics and coordinates the county traffic control permit (14-day lead time) for highway shooting."
+      },
+      {
+        "need": "1st AC",
+        "recommendation": "R. Chen (CR-103), $750/day, IATSE Local 600 (US-West)",
+        "grounded": true,
+        "source_records": [
+          {
+            "record_id": "CR-103",
+            "summary": "R. Chen, 1st AC in US-West, day rate $750.0, IATSE Local 600 union.",
+            "source": "clickhouse:backlot_studio.crew_library"
+          }
+        ],
+        "notes": "First Assistant Camera / focus puller for low-light night work and moving vehicle action."
+      },
+      {
+        "need": "Sound Mixer",
+        "recommendation": "T. Boone (CR-104), $800/day, IATSE Local 695 (US-West)",
+        "grounded": true,
+        "source_records": [
+          {
+            "record_id": "CR-104",
+            "summary": "T. Boone, Sound Mixer in US-West, day rate $800.0, IATSE Local 695 union.",
+            "source": "clickhouse:backlot_studio.crew_library"
+          }
+        ],
+        "notes": "Captures production dialogue in interior vehicle and noisy exterior locations."
+      },
+      {
+        "need": "Stunt Coordinator",
+        "recommendation": "D. Whitlock (CR-106), $1,400/day, SAG-AFTRA (US-West)",
+        "grounded": true,
+        "source_records": [
+          {
+            "record_id": "CR-106",
+            "summary": "D. Whitlock, Stunt Coordinator in US-West, day rate $1,400.0, SAG-AFTRA union.",
+            "source": "clickhouse:backlot_studio.crew_library"
+          }
+        ],
+        "notes": "Oversees wet-weather highway driving in Scene 4 and stealth dock evasion movement in Scene 3."
+      }
+    ],
+    "location_picks": [
+      {
+        "need": "Location: Industrial Lot (EXT. INDUSTRIAL LOT - NIGHT, Day 1 / Scene 1)",
+        "recommendation": "Fernwood Industrial Lot (LOC-01), $2,200/day permit, US-West",
+        "grounded": true,
+        "source_records": [
+          {
+            "record_id": "LOC-01",
+            "summary": "Fernwood Industrial Lot, type industrial_lot, US-West, permit $2,200.0/day, supports night shoot, power access.",
+            "source": "clickhouse:backlot_studio.location_library"
+          }
+        ],
+        "notes": "Permitted for night shooting with on-site power access."
+      },
+      {
+        "need": "Location: Cargo Van Interior (INT. CARGO VAN - NIGHT / CONTINUOUS, Day 2 / Scenes 2, 4)",
+        "recommendation": "Staged in Picture Vehicle / Studio Base (Ungrounded: No dedicated cargo van interior record in location_library)",
+        "grounded": false,
+        "source_records": [],
+        "notes": "Interior cargo van work is staged inside picture vehicle units or on a process trailer; no dedicated vehicle interior physical facility exists in location_library."
+      },
+      {
+        "need": "Location: Warehouse Dock (EXT. WAREHOUSE DOCK - NIGHT, Day 3 / Scene 3)",
+        "recommendation": "Pier 9 Loading Dock (LOC-02), $2,600/day permit, US-West",
+        "grounded": true,
+        "source_records": [
+          {
+            "record_id": "LOC-02",
+            "summary": "Pier 9 Loading Dock, type warehouse_dock, US-West, permit $2,600.0/day, supports night shoot, power access.",
+            "source": "clickhouse:backlot_studio.location_library"
+          }
+        ],
+        "notes": "Practical loading dock with night shoot support and power access."
+      },
+      {
+        "need": "Location: Highway Stretch (EXT. HIGHWAY - NIGHT, Day 4 / Scene 4)",
+        "recommendation": "Route 14 Overpass Stretch (LOC-03), $5,200/day permit, US-West",
+        "grounded": true,
+        "source_records": [
+          {
+            "record_id": "LOC-03",
+            "summary": "Route 14 Overpass Stretch, type highway_stretch, US-West, permit $5,200.0/day, supports night shoot, no power access, requires county traffic control permit (14-day lead time).",
+            "source": "clickhouse:backlot_studio.location_library"
+          }
+        ],
+        "notes": "Supports night shooting. Note: No power access; requires county traffic control permit with a 14-day lead time."
+      },
+      {
+        "need": "Location: Auto Garage (INT. LOU'S GARAGE - DAY, Day 5 / Scene 5)",
+        "recommendation": "Delgado's Auto Garage (LOC-04), $1,400/day permit, US-West",
+        "grounded": true,
+        "source_records": [
+          {
+            "record_id": "LOC-04",
+            "summary": "Delgado's Auto Garage, type auto_garage, US-West, permit $1,400.0/day, day shoots only, power access.",
+            "source": "clickhouse:backlot_studio.location_library"
+          }
+        ],
+        "notes": "Daytime interior practical auto garage with power access."
+      }
+    ]
+  }
+}
