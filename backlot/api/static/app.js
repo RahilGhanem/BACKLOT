@@ -38,6 +38,7 @@
   var downloadBtn = document.getElementById("download-json");
   var railListEl = document.getElementById("rail-list");
   var railGroundValue = document.getElementById("rail-ground-value");
+  var railGroundSub = document.getElementById("rail-ground-sub");
   var pipelineMapEl = document.getElementById("pipeline-map");
 
   var provDrawer = document.getElementById("prov-drawer");
@@ -220,6 +221,8 @@
       railGroundValue.textContent = "—";
       railGroundValue.className = "rail-ground-value";
     }
+    var store = currentPackage ? V.groundingStore(currentPackage) : null;
+    railGroundSub.textContent = store ? "grounded in " + store : "grounded";
   }
 
   /* ---------- setup page actions ---------- */

@@ -15,7 +15,15 @@ def test_agent_engine_entrypoint_builds_an_auto_approving_root_agent():
 
 def test_dockerfiles_exist_and_reference_the_right_entrypoints():
     dockerfile = (REPO_ROOT / "Dockerfile").read_text(encoding="utf-8")
-    assert "backlot.api.app:app" in dockerfile
+    entrypoint = (REPO_ROOT / "docker-entrypoint.sh").read_text(encoding="utf-8")
+
+    assert "docker-entrypoint.sh" in dockerfile
+    assert "backlot.api.app:app" in entrypoint
+    assert "backlot.mcp_shim.server" in entrypoint, (
+        "shim mode must start an MCP server in-container, or every run fails "
+        "the reachability check"
+    )
+    assert "${PORT}" in entrypoint or '"${PORT}"' in entrypoint
 
     shim_dockerfile = (REPO_ROOT / "Dockerfile.mcp_shim").read_text(encoding="utf-8")
     assert "backlot.mcp_shim.server" in shim_dockerfile

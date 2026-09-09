@@ -158,6 +158,29 @@ var BACKLOT_VIEWS = (function () {
     return match.length === 1 ? match[0] : null;
   }
 
+  /** Names the backing store from the provenance actually present, so the
+   *  UI can never claim a source the records don't show. */
+  function groundingStore(pkg) {
+    var prefixes = {};
+    function scan(list, key) {
+      (list || []).forEach(function (x) {
+        (x.source_records || []).forEach(function (r) {
+          if (r.source) prefixes[String(r.source).split(":")[0]] = true;
+        });
+      });
+    }
+    if (pkg) {
+      scan(pkg.budget && pkg.budget.line_items);
+      scan(pkg.resources && pkg.resources.crew_picks);
+      scan(pkg.resources && pkg.resources.location_picks);
+    }
+    var keys = Object.keys(prefixes);
+    if (!keys.length) return null;
+    if (keys.length === 1 && keys[0] === "clickhouse") return "ClickHouse";
+    if (keys.length === 1 && keys[0] === "mcp_shim") return "the local dataset";
+    return keys.join(", ");
+  }
+
   var SEVERITY_ORDER = { high: 0, medium: 1, low: 2 };
 
   function severityBadge(sev) {
@@ -211,13 +234,13 @@ var BACKLOT_VIEWS = (function () {
     { key: "first_ad_scheduler", icon: "1st-AD Scheduler.png", short: "Schedule", full: "1st-AD Scheduler", view: "schedule",
       hint: "Builds the stripboard shoot schedule" },
     { key: "budget_agent", icon: "Budget Agent.png", short: "Budget", full: "Budget Agent", view: "budget", grounded: true,
-      hint: "Grounded in studio data via ClickHouse MCP" },
+      hint: "Grounded in studio data over MCP" },
     { key: "risk_agent", icon: "Risk Continuity.png", short: "Risk", full: "Risk / Continuity", view: "risk",
       hint: "Critiques the schedule and budget" },
     { key: "approval_gate", icon: "Approval Gate.png", short: "Approval", full: "Approval Gate", view: "overview", human: true,
       hint: "A producer signs off the budget band" },
     { key: "resource_agent", icon: "Resource Agent.png", short: "Resources", full: "Resource Agent", view: "resources", grounded: true,
-      hint: "Grounded in studio data via ClickHouse MCP" },
+      hint: "Grounded in studio data over MCP" },
     { key: "package_assembler", icon: "Package Assembler.png", short: "Package", full: "Package Assembler", view: "package",
       hint: "Combines everything into the package" },
   ];
@@ -418,9 +441,12 @@ var BACKLOT_VIEWS = (function () {
             : "The risk report records that a re-plan was requested. A saved package does not carry the event log, so the number of passes is not known here.") +
           "</p>"
         : "") +
-      '<p class="spine-floor"><span class="floor-label">ClickHouse</span>' +
-      "Budget and Resources query the studio dataset through the official mcp-clickhouse server. " +
-      "Values they produce carry a source record.</p>" +
+      (function () {
+        var store = groundingStore(pkg);
+        if (!store) return "";
+        return '<p class="spine-floor"><span class="floor-label">' + escapeHtml(store) + "</span>" +
+          "Budget and Resources query the studio dataset over MCP. Values they produce carry a source record.</p>";
+      })() +
       "</section>"
     );
   }
@@ -597,7 +623,8 @@ var BACKLOT_VIEWS = (function () {
       '<div class="panel"><div class="panel-head"><h3>Grounding</h3>' +
       '<span class="hint">' + (haveMetric ? "measured this run" : "counted from this package") + "</span></div>" +
       '<div class="ground-figure"><span class="gf-rate">' + pct(g / total) + "</span>" +
-      '<span class="gf-sub">' + g + " of " + total + " claims carry a studio-data record</span></div>" +
+      '<span class="gf-sub">' + g + " of " + total + " claims carry a record in " +
+      escapeHtml(groundingStore(pkg) || "the studio dataset") + "</span></div>" +
       '<div class="ledger-bar" role="img" aria-label="' + escapeHtml(g + " grounded, " + u + " ungrounded") + '">' +
       '<span class="lb-good" style="width:' + (g / total) * 100 + '%"></span>' +
       '<span class="lb-bad" style="width:' + (u / total) * 100 + '%"></span></div>' +
@@ -1275,6 +1302,7 @@ var BACKLOT_VIEWS = (function () {
     getProvenance: getProvenance,
     groundBadge: groundBadge,
     buildIndex: buildIndex,
+    groundingStore: groundingStore,
     CREW_STATIONS: CREW_STATIONS,
     countBlocks: countBlocks,
     computeCrewState: computeCrewState,
