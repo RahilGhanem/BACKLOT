@@ -86,10 +86,7 @@ def test_invalid_budget_raises():
 
 
 def test_continuous_scene_inherits_previous_scene_night_bucket():
-    """A CONTINUOUS scene (e.g. cutting into the getaway van mid-scene)
-    doesn't carry its own time-of-day; it must join the NIGHT shoot it's
-    actually part of rather than defaulting to a DAY group and silently
-    dropping out of the night count."""
+    """A CONTINUOUS scene (e.g."""
     scenes = [
         _scene("1", 0, "LOT", IntExt.EXT, TimeOfDay.NIGHT, 2.0, ["MARA"]),
         _scene("2", 1, "VAN", IntExt.INT, TimeOfDay.CONTINUOUS, 1.0, ["MARA"]),
@@ -110,9 +107,6 @@ def test_continuous_scene_inherits_previous_scene_night_bucket():
 
     van_day_day = next(d for d in schedule.days if d.location == "VAN" and "4" in d.scene_numbers)
     assert van_day_day.time_of_day is TimeOfDay.DAY
-    # The two VAN visits belong to different continuity buckets (one
-    # trails a NIGHT scene, one trails a DAY scene), so they must land on
-    # separate shoot days, not be merged into one.
     assert van_night_day.day_number != van_day_day.day_number
 
 
@@ -134,9 +128,9 @@ def test_dawn_and_unspecified_still_default_to_day():
 
 
 def test_ffd_packing_minimizes_days_when_arrival_order_would_waste_a_day():
-    """Arrival-order packing of pages [4, 4, 1, 1] under a 5-page cap wastes
-    a day (4 | 4,1 | 1 = 3 days); first-fit-decreasing packs the same
-    scenes into the 2 days the total page count actually requires."""
+    """Arrival-order packing of pages [4, 4, 1, 1] under a 5-page cap wastes a
+    day (4 | 4,1 | 1 = 3 days); first-fit-decreasing packs the same scenes
+    into the 2 days the total page count actually requires."""
     scenes = [
         _scene("1", 0, "LOT", IntExt.EXT, TimeOfDay.NIGHT, 4.0, ["MARA"]),
         _scene("2", 1, "LOT", IntExt.EXT, TimeOfDay.NIGHT, 4.0, ["DESH"]),

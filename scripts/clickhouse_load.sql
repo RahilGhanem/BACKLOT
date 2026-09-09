@@ -1,40 +1,15 @@
--- BACKLOT: loads data/studio_dataset/*.json into a real ClickHouse cluster,
--- as tables the Budget/Resource agents query directly with SQL when
--- MCP_MODE=clickhouse (see backlot/agents/_state_instructions.py's
--- clickhouse_sql_rule and backlot/agents/budget.py / resource.py). Queried
--- at runtime via the real, official ClickHouse MCP server
--- (github.com/ClickHouse/mcp-clickhouse)'s run_query/list_tables tools.
+-- Loads data/studio_dataset/*.json into ClickHouse as the tables the Budget
+-- and Resource agents query over MCP when MCP_MODE=clickhouse. The rows are
+-- the same synthetic dataset the JSON files carry.
 --
--- Run this ONCE, by hand, against your ClickHouse Cloud (or self-hosted)
--- cluster -- e.g. paste it into the ClickHouse Cloud SQL console, or pipe
--- it through `clickhouse-client --host ... --secure --password ... --multiquery
--- < scripts/clickhouse_load.sql`. This script is NOT executed by BACKLOT
--- itself and needs no Python/MCP dependency to run.
+-- Run once by hand against your cluster: paste into the ClickHouse Cloud SQL
+-- console, or pipe it through clickhouse-client with --multiquery. BACKLOT
+-- never executes this itself.
 --
--- Before running:
---   1. The database name below is "backlot_studio", matching
---      CLICKHOUSE_DATABASE's default in .env.example/backlot/config.py. If
---      you want a different name, change every reference below AND set
---      CLICKHOUSE_DATABASE to match in .env.
---   2. After loading, set in .env (see .env.example):
---        MCP_MODE=clickhouse
---        CLICKHOUSE_DATABASE=backlot_studio   (or whatever you chose)
---        CLICKHOUSE_MCP_URL=<your mcp-clickhouse server's streamable-http URL>
---        CLICKHOUSE_MCP_AUTH_TOKEN=<if the server has auth enabled>
---     so the agents' SQL targets the same database this script loaded data
---     into. The cluster connection itself (CLICKHOUSE_HOST/PORT/USER/
---     PASSWORD) is configured on whoever runs the mcp-clickhouse server,
---     not read by backlot directly -- see .env.example's comments.
+-- The database name is backlot_studio, matching CLICKHOUSE_DATABASE in
+-- .env.example. Change both together if you use another name.
 --
--- The rows below are the exact same synthetic data as
--- data/studio_dataset/*.json (see each file's own "_disclaimer" field) --
--- this script just gets them into real tables so the Budget/Resource
--- agents can run real SELECTs (via the MCP server's run_query tool)
--- instead of mcp_shim's in-process fuzzy matcher. Re-running this script
--- is safe for the CREATE statements (IF NOT EXISTS) but will duplicate
--- rows if the INSERTs are re-run against tables that already have data --
--- TRUNCATE first (or DROP DATABASE + re-run this whole file) if you need
--- to reload.
+-- Safe to re-run: each table is truncated before it is loaded.
 
 CREATE DATABASE IF NOT EXISTS backlot_studio;
 
@@ -52,6 +27,8 @@ CREATE TABLE IF NOT EXISTS backlot_studio.historical_costs
 )
 ENGINE = MergeTree
 ORDER BY (scene_profile);
+
+TRUNCATE TABLE IF EXISTS backlot_studio.historical_costs;
 
 INSERT INTO backlot_studio.historical_costs
     (scene_profile, description, avg_cost_per_day, sample_size, comparable_titles)
@@ -76,6 +53,8 @@ CREATE TABLE IF NOT EXISTS backlot_studio.vendor_rates
 )
 ENGINE = MergeTree
 ORDER BY (category, region);
+
+TRUNCATE TABLE IF EXISTS backlot_studio.vendor_rates;
 
 INSERT INTO backlot_studio.vendor_rates
     (category, region, rate, vendor)
@@ -112,6 +91,8 @@ CREATE TABLE IF NOT EXISTS backlot_studio.crew_library
 ENGINE = MergeTree
 ORDER BY (crew_id);
 
+TRUNCATE TABLE IF EXISTS backlot_studio.crew_library;
+
 INSERT INTO backlot_studio.crew_library
     (crew_id, name, role, region, day_rate, `union`, available_from, available_to)
 VALUES
@@ -147,6 +128,8 @@ CREATE TABLE IF NOT EXISTS backlot_studio.location_library
 ENGINE = MergeTree
 ORDER BY (location_id);
 
+TRUNCATE TABLE IF EXISTS backlot_studio.location_library;
+
 INSERT INTO backlot_studio.location_library
     (location_id, name, `type`, region, permit_cost_per_day, supports_night_shoot, power_access, available_from, available_to, notes)
 VALUES
@@ -176,6 +159,8 @@ CREATE TABLE IF NOT EXISTS backlot_studio.past_schedules
 )
 ENGINE = MergeTree
 ORDER BY (genre, scale);
+
+TRUNCATE TABLE IF EXISTS backlot_studio.past_schedules;
 
 INSERT INTO backlot_studio.past_schedules
     (genre, scale, avg_pages_per_day, avg_shoot_days, sample_size, notes)

@@ -10,8 +10,11 @@ __pycache__/
 build/
 dist/
 
-.env
-*.env.local
+# Ignore every .env variant (.env, .env.backup, .env.local, ...) -- only
+# the placeholder .env.example is tracked. A narrow `.env` rule used to
+# let files like .env.backup-* stay committable with real secrets in them.
+.env*
+!.env.example
 secrets/
 
 output/
@@ -21,3 +24,9 @@ output/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Isolated venv for the official mcp-clickhouse server (needs mcp>=2.x,
+# which conflicts with this app pinned mcp 1.29.0 -- never install it into .venv)
+.mcp-clickhouse-venv/
+.backup-frontend/
+

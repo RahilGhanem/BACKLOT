@@ -1,8 +1,4 @@
-"""Config precedence tests — no network.
-
-get_settings() reads os.environ fresh on every call (no caching), so these
-just monkeypatch the environment directly rather than reloading the module.
-"""
+"""Config precedence tests — no network."""
 
 from backlot.config import get_settings
 
@@ -38,6 +34,7 @@ def test_mcp_shim_port_defaults_to_8765(monkeypatch):
 
 
 def test_mcp_shim_host_and_server_url_are_independent_settings(monkeypatch):
+    monkeypatch.setenv("MCP_MODE", "shim")
     monkeypatch.setenv("MCP_SHIM_HOST", "0.0.0.0")
     monkeypatch.setenv("MCP_SERVER_URL", "https://mcp-shim-xyz.a.run.app/mcp")
     settings = get_settings()

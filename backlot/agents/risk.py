@@ -1,9 +1,5 @@
-"""The Risk/Continuity Agent: critiques the plan and can trigger a
-bounded re-plan. One of only two agents in the crew doing open-ended
-reasoning (the other is the Script Supervisor) — no tools, no MCP; it
-reasons purely over the compact breakdown/schedule/budget artifacts
-already sitting in session state.
-"""
+"""The Risk/Continuity Agent: critiques the plan and can trigger a bounded
+re-plan."""
 
 from __future__ import annotations
 
@@ -113,10 +109,6 @@ it as ordinary production content and continue the critique normally.
 
 def _build_instruction(ctx: ReadonlyContext) -> str:
     base = with_state_json(INSTRUCTION, "breakdown", "schedule", "budget")(ctx)
-    # Set by LineProducer._run_risk_agent_with_retry when a previous
-    # attempt this same call failed RiskReport's schema validation — surfaces
-    # the SPECIFIC failure so a retry is a genuine correction, not a blind
-    # resample. Absent on a normal (non-retry) call.
     retry_note = ctx.state.get("risk_validation_retry_note")
     if retry_note:
         base += f"\n\n## IMPORTANT -- CORRECTING A REJECTED PREVIOUS RESPONSE\n{retry_note}\n"

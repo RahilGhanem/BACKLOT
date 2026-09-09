@@ -1,8 +1,4 @@
-"""The Script Supervisor agent: screenplay text -> ScriptBreakdown JSON.
-
-This is the one agent in the crew that ever sees the full screenplay. Every
-other specialist works from the compact breakdown this agent produces.
-"""
+"""The Script Supervisor agent: screenplay text -> ScriptBreakdown JSON."""
 
 from __future__ import annotations
 

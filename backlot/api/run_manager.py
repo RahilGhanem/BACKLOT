@@ -1,9 +1,4 @@
-"""Tracks background pipeline runs for the API layer.
-
-Runs live in an in-memory dict — this is a local-dev/demo simplification,
-not a production run store. Phase 7's deploy notes cover what changes for
-Agent Engine (managed sessions) and Firestore-backed run state.
-"""
+"""Tracks background pipeline runs for the API layer."""
 
 from __future__ import annotations
 
@@ -22,9 +17,6 @@ from ..config import get_settings
 from ..metrics import compute_run_metrics
 from ..orchestrator import build_line_producer
 
-# Every key an agent might write into shared session state, in pipeline
-# order — snapshotted after every event so the UI can render each crew
-# member's output the moment it's ready, not just once the whole run ends.
 _ARTIFACT_KEYS = [
     "breakdown",
     "previz",
@@ -39,16 +31,16 @@ _ARTIFACT_KEYS = [
 @dataclass
 class RunState:
     run_id: str
-    status: str = "running"  # running | awaiting_approval | completed | rejected | error
+    status: str = "running"
     events: list[dict] = field(default_factory=list)
-    partial_state: dict = field(default_factory=dict)  # live snapshot, see _ARTIFACT_KEYS
+    partial_state: dict = field(default_factory=dict)
     package: dict | None = None
     metrics: dict | None = None
     error: str | None = None
     created_at: float = field(default_factory=time.time)
     approval_event: asyncio.Event = field(default_factory=asyncio.Event)
     approval_result: tuple[bool, str] | None = None
-    pending_budget: dict | None = None  # so the UI can show real line items at the gate
+    pending_budget: dict | None = None
 
     def resolve_approval(self, approved: bool, reason: str) -> None:
         self.approval_result = (approved, reason)
@@ -94,9 +86,6 @@ async def _execute(state: RunState, screenplay_text: str, with_previz: bool) -> 
     settings = get_settings()
     try:
         settings.require_llm_credentials()
-        # check_mcp_reachable does a blocking socket connect; run it off the
-        # event loop thread so it can't stall other in-flight requests/runs
-        # for up to its timeout.
         await asyncio.to_thread(check_mcp_reachable, settings)
     except RuntimeError as exc:
         state.status = "error"
@@ -113,10 +102,6 @@ async def _execute(state: RunState, screenplay_text: str, with_previz: bool) -> 
     )
     message = types.Content(role="user", parts=[types.Part(text=screenplay_text)])
 
-    # Hard safety cap: a runaway tool-calling loop shouldn't be able to
-    # burn through a whole day's free-tier quota in a single run (default
-    # RunConfig.max_llm_calls is 500 — far too loose for e.g. a
-    # 20-requests/day account).
     run_config = RunConfig(max_llm_calls=settings.max_llm_calls_per_run)
 
     raw_events: list[Event] = []
@@ -126,9 +111,6 @@ async def _execute(state: RunState, screenplay_text: str, with_previz: bool) -> 
         ):
             raw_events.append(event)
             state.events.append(_summarize_event(event))
-            # Cheap (in-memory session service): snapshot known artifact
-            # keys after every event so the UI can render each crew
-            # member's output the moment it lands, not just at the end.
             session = await runner.session_service.get_session(
                 app_name=settings.app_name, user_id=user_id, session_id=state.run_id
             )
@@ -136,7 +118,7 @@ async def _execute(state: RunState, screenplay_text: str, with_previz: bool) -> 
                 state.partial_state = {
                     key: session.state[key] for key in _ARTIFACT_KEYS if key in session.state
                 }
-    except Exception as exc:  # surface to the UI rather than losing the run silently
+    except Exception as exc:
         state.status = "error"
         state.error = str(exc)
         state.metrics = compute_run_metrics(raw_events, state.partial_state)

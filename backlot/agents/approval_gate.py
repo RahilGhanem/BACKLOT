@@ -1,12 +1,6 @@
 """The human approval gate: a producer signs off the budget band before
 resources are committed (in this system, before the Resource Agent proposes
-concrete crew/vendor/location picks).
-
-Deliberately a plain, injectable callable rather than baked-in CLI logic —
-the default blocks on stdin for local/demo use, but Phase 5's API can pass
-a different decider (e.g. one that waits for an HTTP approve/reject from
-the web UI) without touching this class.
-"""
+concrete crew/vendor/location picks)."""
 
 from __future__ import annotations
 
@@ -19,10 +13,6 @@ from google.adk.events import Event, EventActions
 from google.genai import types
 from pydantic import ConfigDict
 
-# Takes the budget dict (BudgetEstimate.model_dump()); returns (approved,
-# reason), or an awaitable of the same — an async decider can `await` an
-# external signal (e.g. the web UI's approve/reject endpoint) without
-# blocking the event loop the way a synchronous wait would.
 ApprovalDecider = Callable[[dict], Union["tuple[bool, str]", Awaitable["tuple[bool, str]"]]]
 
 

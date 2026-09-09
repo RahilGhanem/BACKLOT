@@ -1,9 +1,4 @@
-"""The final artifact the Line Producer assembles and returns to the user.
-
-Grows with each phase: Phase 2 adds breakdown + schedule; Phase 3 adds
-budget/resources; Phase 4 adds the risk report and the approval decision;
-Phase 6 adds previz (opt-in).
-"""
+"""The production package the Line Producer assembles and returns."""
 
 from __future__ import annotations
 

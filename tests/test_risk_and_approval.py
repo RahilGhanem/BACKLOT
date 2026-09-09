@@ -17,7 +17,7 @@ def test_build_risk_agent_is_configured_correctly():
     assert agent.output_key == "risk_report"
     assert agent.output_schema is RiskReport
     assert agent.model.model == settings.gemini_model_pro
-    assert agent.tools == []  # pure reasoning over state, no MCP tools
+    assert agent.tools == []
 
 
 def test_auto_approve_decider_always_approves():
@@ -57,8 +57,7 @@ def test_approval_decision_schema_defaults_reason_empty():
 
 
 def test_risk_report_rejects_replan_requested_with_zero_flags():
-    """The exact contradiction Gap 3 outlaws: feasible=false +
-    replan_requested=true + 0 flags."""
+    """A replan request with zero supporting flags is contradictory."""
     with pytest.raises(ValidationError, match="zero flags"):
         RiskReport(
             title="TEST",

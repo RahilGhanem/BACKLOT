@@ -1,10 +1,4 @@
-"""Computes the evaluation scorecard from the report's Evaluation Plan (§11),
-directly from the ADK event log a run produces — no separate instrumentation
-pass needed. Metrics that need data this project doesn't have (a
-hand-labeled retrieval precision@k set, a naive-baseline schedule
-comparison) are intentionally left out rather than faked; "report the
-number honestly" applies to what's missing too.
-"""
+"""Computes the evaluation scorecard directly from the ADK event log."""
 
 from __future__ import annotations
 

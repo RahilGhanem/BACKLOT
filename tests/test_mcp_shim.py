@@ -28,18 +28,16 @@ def test_get_vendor_rates_filters_by_region_when_available():
 
 def test_get_vendor_rates_falls_back_when_region_has_no_exact_match():
     result = get_vendor_rates("rain effects", region="EU-Central")
-    # no EU-Central vendor exists; falls back to fuzzy category matches
     assert len(result["matches"]) >= 1
 
 
 def test_find_available_crew_filters_by_role_and_date_window():
     result = find_available_crew("gaffer", start_date="2026-08-05", end_date="2026-08-10")
     assert all(m["role"] == "Gaffer" for m in result["matches"])
-    assert len(result["matches"]) == 2  # both gaffers in the fixture cover this window
+    assert len(result["matches"]) == 2
 
 
 def test_find_available_crew_excludes_out_of_window_availability():
-    # Stunt Coordinator is only available 2026-08-15 to 2026-09-15
     result = find_available_crew("stunt coordinator", start_date="2026-07-01", end_date="2026-07-10")
     assert result["matches"] == []
 

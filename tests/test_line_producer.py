@@ -1,13 +1,4 @@
-"""Line Producer orchestrator tests.
-
-Construction test always runs (no network). The end-to-end test runs the
-full crew (script -> breakdown -> schedule -> grounded budget -> risk ->
-approval gate -> grounded resources -> package) against a real Gemini call
-and the auto-started MCP shim; skipped automatically without credentials,
-same as test_script_supervisor.py. Control-flow branching (the re-plan cap,
-the approval-gate skip) is covered deterministically, without credentials,
-in test_line_producer_control_flow.py.
-"""
+"""Line Producer orchestrator tests."""
 
 import pytest
 
@@ -60,8 +51,6 @@ async def test_pipeline_produces_a_grounded_scheduled_approved_package(mcp_shim_
     screenplay_path = DATA_DIR / "screenplays" / "sample_screenplay.txt"
     screenplay_text = screenplay_path.read_text(encoding="utf-8")
 
-    # auto_approve=True: this is an automated test run, not an interactive
-    # terminal, so it must not block on the CLI approval prompt.
     artifacts, error = await run_line_producer(screenplay_text, auto_approve=True)
 
     assert error is None, f"pipeline stopped early: {error}"

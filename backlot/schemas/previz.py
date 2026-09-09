@@ -1,4 +1,4 @@
-"""The Previz Agent's output contract (Phase 6, opt-in)."""
+"""The Previz Agent's output contract."""
 
 from __future__ import annotations
 

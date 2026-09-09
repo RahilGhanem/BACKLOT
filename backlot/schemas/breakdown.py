@@ -1,10 +1,4 @@
-"""The Script Supervisor's output contract.
-
-This is the first compact artifact in the crew's shared state. Downstream
-agents (Scheduler, Budget, Resource, Risk) consume ScriptBreakdown JSON only —
-never the raw screenplay — which is the token-efficiency story: the whole
-script is read once, by one agent.
-"""
+"""The Script Supervisor's output contract."""
 
 from __future__ import annotations
 

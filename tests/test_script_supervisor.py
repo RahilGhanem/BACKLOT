@@ -1,9 +1,4 @@
-"""Script Supervisor agent tests.
-
-Construction/config tests always run (no network). The end-to-end test
-actually calls Gemini and is skipped automatically if no credentials are
-configured in .env — see backlot/config.py for the two supported auth paths.
-"""
+"""Script Supervisor agent tests."""
 
 import pytest
 
@@ -19,7 +14,6 @@ def test_build_script_supervisor_is_configured_correctly():
     assert agent.name == "script_supervisor"
     assert agent.output_key == "breakdown"
     assert agent.output_schema is ScriptBreakdown
-    # model routing follows settings, not a hardcoded string
     assert agent.model.model == settings.gemini_model_pro
 
 

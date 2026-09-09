@@ -1,8 +1,4 @@
-"""Assembles the compact per-stage state into the final ProductionPackage.
-
-Also deterministic/non-LLM: by the time this agent runs, every value it
-needs is already validated JSON sitting in session state.
-"""
+"""Assembles the compact per-stage state into the final ProductionPackage."""
 
 from __future__ import annotations
 
@@ -45,10 +41,6 @@ class PackageAssembler(BaseAgent):
         breakdown = ScriptBreakdown.model_validate(breakdown_data)
         schedule = Schedule.model_validate(schedule_data)
 
-        # Everything below is optional in state: earlier phases, or a Line
-        # Producer configured without the later crew members, may not have
-        # produced them, and Resources is skipped entirely if the approval
-        # gate rejected the budget.
         budget_data = ctx.session.state.get("budget")
         risk_data = ctx.session.state.get("risk_report")
         approval_data = ctx.session.state.get("approval")

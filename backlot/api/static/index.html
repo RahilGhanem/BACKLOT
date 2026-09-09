@@ -3,103 +3,241 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>BACKLOT</title>
-<link rel="stylesheet" href="/style.css" />
+<title>BACKLOT — autonomous pre-production</title>
+<link rel="icon" href="/icons/small/logo.png" />
+<!-- ?v= busts a stale cached stylesheet. Bump on release. -->
+<!-- Roboto stands in for Google Sans, which is not redistributable. -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet"
+  href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap" />
+<link rel="stylesheet" href="/style.css?v=6" />
 </head>
 <body>
+
+<a class="skip-link" href="#main">Skip to main content</a>
 
 <div class="scene-glow" aria-hidden="true"></div>
 
 <header class="topbar">
   <div class="topbar-inner">
     <div class="brand">
-      <img class="brand-mark" src="/icons/logo.png" alt="BACKLOT logo" aria-hidden="true" />
+      <img class="brand-mark" src="/icons/small/logo.png" alt="" aria-hidden="true" />
       <div class="brand-text">
         <h1>BACKLOT</h1>
         <p>an autonomous pre-production crew</p>
       </div>
     </div>
-    <ol class="stepper" id="stepper">
+
+    <!-- Live pipeline state, always visible: which phase the run is in. -->
+    <ol class="stepper" id="stepper" aria-label="Run progress">
       <li data-step="input" class="is-current">Screenplay</li>
       <li data-step="crew">Crew at work</li>
       <li data-step="approval">Approval</li>
       <li data-step="done">Package</li>
     </ol>
+
+    <div class="topbar-right">
+      <span class="run-chip" id="run-chip" hidden></span>
+    </div>
   </div>
 </header>
 
-<main class="layout">
+<div class="shell">
 
-  <section class="panel input-panel" id="input-panel">
-    <div class="panel-head">
-      <h2><svg viewBox="0 0 24 24" class="icon"><path d="M6 3h9l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"/><path d="M15 3v4h4" stroke-linejoin="round"/><path d="M8 12h8M8 15.5h8M8 8.5h4"/></svg> Screenplay</h2>
-      <span class="hint">plain text · standard scene headings</span>
-    </div>
-    <textarea id="screenplay" placeholder="Paste a screenplay here, or load the sample to see BACKLOT work end to end..."></textarea>
-    <div class="controls-row">
-      <label class="checkbox-row">
-        <input type="checkbox" id="with-previz" />
-        <span>Generate previz <em>(Imagen / Veo / Lyria — real cost, a Veo clip can take minutes)</em></span>
-      </label>
-      <div class="row">
-        <button id="load-sample" class="ghost">Load sample</button>
-        <button id="load-replan-demo" class="ghost" title="A screenplay purpose-built to trigger the bounded re-plan loop (six consecutive night exteriors)">Load re-plan demo</button>
-        <button id="run" class="primary">
-          <svg viewBox="0 0 24 24" class="icon"><path d="M7 5v14l11-7Z"/></svg>
-          Run the crew
-        </button>
+  <!-- ---------- rail navigation ---------- -->
+  <nav class="rail" id="rail" aria-label="Sections">
+    <ul class="rail-list" id="rail-list"><!-- built by app.js --></ul>
+    <div class="rail-foot">
+      <span class="rail-foot-label">Grounding</span>
+      <div class="rail-ground" id="rail-ground" aria-live="polite">
+        <span class="rail-ground-value" id="rail-ground-value">—</span>
+        <span class="rail-ground-sub">grounded in ClickHouse</span>
       </div>
     </div>
-    <p id="run-status" class="status" role="status"></p>
-  </section>
+  </nav>
 
-  <section class="panel crew-panel hidden" id="crew-panel">
-    <div class="panel-head">
-      <h2><svg viewBox="0 0 24 24" class="icon"><circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20v-1a5 5 0 0 1 5-5h0a5 5 0 0 1 5 5v1"/><path d="M14.5 14.2A4 4 0 0 1 21 17.3V19"/></svg> The crew</h2>
-      <button id="toggle-log" class="link-btn" aria-expanded="false">Show detailed log ▾</button>
-    </div>
-    <div class="replan-banner hidden" id="replan-banner" role="status"></div>
-    <ol class="crew-track" id="crew-track"></ol>
-    <ol class="activity-log hidden" id="activity-log"></ol>
-  </section>
+  <!-- ---------- views ---------- -->
+  <main class="views" id="main" tabindex="-1">
 
-  <section class="results-panel hidden" id="results-panel">
-    <section class="panel">
-      <div class="panel-head">
-        <h2><svg viewBox="0 0 24 24" class="icon"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 3v3M16 3v3"/></svg> Production package</h2>
-        <div class="row">
-          <button id="download-json" class="ghost small">Download JSON</button>
+    <!-- SETUP ------------------------------------------------------- -->
+    <section class="view is-active" data-view="setup" aria-labelledby="setup-h">
+      <div class="view-head">
+        <div>
+          <h2 id="setup-h">Screenplay</h2>
+          <p class="view-sub">Give the crew a script. They will break it down, schedule it, cost it against real studio data, and flag what could go wrong.</p>
         </div>
       </div>
-      <div class="tabs" id="result-tabs" role="tablist"></div>
-      <div id="tab-panels"></div>
-    </section>
 
-    <section class="panel metrics-panel">
-      <div class="panel-head">
-        <h2><svg viewBox="0 0 24 24" class="icon"><path d="M4 20V10M11 20V4M18 20v-7"/></svg> Scorecard</h2>
+      <div class="panel input-panel">
+        <div class="panel-head">
+          <h3>Source</h3>
+          <span class="hint">plain text · standard scene headings</span>
+        </div>
+        <textarea id="screenplay" aria-label="Screenplay text"
+          placeholder="Paste a screenplay here, or load the sample to see BACKLOT work end to end…"></textarea>
+
+        <div class="controls-row">
+          <label class="checkbox-row">
+            <input type="checkbox" id="with-previz" />
+            <span>Generate previz <em>(Imagen / Veo / Lyria — real cost, a Veo clip can take minutes)</em></span>
+          </label>
+          <div class="row">
+            <button id="load-sample" class="ghost" type="button">Load sample</button>
+            <button id="load-replan-demo" class="ghost" type="button"
+              title="A screenplay purpose-built to trigger the bounded re-plan loop (six consecutive night exteriors)">Load re-plan demo</button>
+            <!-- Reopens a downloaded package read-only; no agents run. -->
+            <label class="ghost file-btn" title="Open a package JSON downloaded from an earlier run">
+              Open package
+              <input type="file" id="open-package" accept="application/json,.json" hidden />
+            </label>
+            <button id="run" class="primary" type="button">
+              <svg viewBox="0 0 24 24" class="icon" aria-hidden="true"><path d="M7 5v14l11-7Z"/></svg>
+              Run the crew
+            </button>
+          </div>
+        </div>
+        <p id="run-status" class="status" role="status"></p>
       </div>
-      <div id="metrics"></div>
+
+      <!-- What is about to happen: the pipeline, explained once. -->
+      <div class="panel pipeline-panel">
+        <div class="panel-head"><h3>What the crew will do</h3></div>
+        <ol class="pipeline-map" id="pipeline-map"><!-- built by app.js --></ol>
+      </div>
     </section>
-  </section>
 
-</main>
+    <!-- CREW -------------------------------------------------------- -->
+    <section class="view" data-view="crew" aria-labelledby="crew-h">
+      <div class="view-head">
+        <div>
+          <h2 id="crew-h">The crew</h2>
+          <p class="view-sub">Seven specialised agents, not one model. Watch each one work, and what it is actually doing.</p>
+        </div>
+        <button id="toggle-log" class="link-btn" type="button" aria-expanded="false" aria-controls="activity-log">Show console ▾</button>
+      </div>
 
-<div class="modal-backdrop hidden" id="approval-backdrop">
+      <div class="replan-banner" id="replan-banner" role="status" hidden></div>
+
+      <div class="crew-grid">
+        <ol class="crew-track" id="crew-track"></ol>
+        <aside class="panel timeline-panel">
+          <div class="panel-head"><h3>Execution timeline</h3><span class="hint">real event timestamps</span></div>
+          <div id="agent-timeline"></div>
+        </aside>
+      </div>
+
+      <ol class="activity-log" id="activity-log" hidden aria-label="Agent console"></ol>
+    </section>
+
+    <!-- OVERVIEW ---------------------------------------------------- -->
+    <section class="view" data-view="overview" aria-labelledby="ov-h">
+      <div class="view-head"><div>
+        <h2 id="ov-h">Production overview</h2>
+        <p class="view-sub">The whole package at a glance.</p>
+      </div></div>
+      <div id="overview-body"></div>
+    </section>
+
+    <!-- BREAKDOWN --------------------------------------------------- -->
+    <section class="view" data-view="breakdown" aria-labelledby="bd-h">
+      <div class="view-head"><div>
+        <h2 id="bd-h">Scene intelligence</h2>
+        <p class="view-sub">Every scene, what it needs, which shoot day it lands on, and what the Risk agent flagged against it.</p>
+      </div></div>
+      <div id="breakdown-body"></div>
+    </section>
+
+    <!-- SCHEDULE ---------------------------------------------------- -->
+    <section class="view" data-view="schedule" aria-labelledby="sc-h">
+      <div class="view-head"><div>
+        <h2 id="sc-h">Stripboard</h2>
+        <p class="view-sub">The shooting schedule, in the colour convention a real 1st AD uses.</p>
+      </div></div>
+      <div id="schedule-body"></div>
+    </section>
+
+    <!-- BUDGET ------------------------------------------------------ -->
+    <section class="view" data-view="budget" aria-labelledby="bg-h">
+      <div class="view-head"><div>
+        <h2 id="bg-h">Budget</h2>
+        <p class="view-sub">Every line item, and whether it came from real studio data or not.</p>
+      </div></div>
+      <div id="budget-body"></div>
+    </section>
+
+    <!-- RISK -------------------------------------------------------- -->
+    <section class="view" data-view="risk" aria-labelledby="rk-h">
+      <div class="view-head"><div>
+        <h2 id="rk-h">Risk map</h2>
+        <p class="view-sub">What the Risk / Continuity agent found, and exactly which scenes and days it affects.</p>
+      </div></div>
+      <div id="risk-body"></div>
+    </section>
+
+    <!-- RESOURCES --------------------------------------------------- -->
+    <section class="view" data-view="resources" aria-labelledby="rs-h">
+      <div class="view-head"><div>
+        <h2 id="rs-h">Crew &amp; locations</h2>
+        <p class="view-sub">Concrete picks, proposed only after a human approved the budget band.</p>
+      </div></div>
+      <div id="resources-body"></div>
+    </section>
+
+    <!-- PREVIZ ------------------------------------------------------ -->
+    <section class="view" data-view="previz" aria-labelledby="pv-h">
+      <div class="view-head"><div>
+        <h2 id="pv-h">Previz</h2>
+        <p class="view-sub">Generated storyboard, animatic and music cue.</p>
+      </div></div>
+      <div id="previz-body"></div>
+    </section>
+
+    <!-- PACKAGE ----------------------------------------------------- -->
+    <section class="view" data-view="package" aria-labelledby="pk-h">
+      <div class="view-head">
+        <div>
+          <h2 id="pk-h">Production package</h2>
+          <p class="view-sub">The deliverable, plus how the run performed.</p>
+        </div>
+        <button id="download-json" class="ghost small" type="button">Download JSON</button>
+      </div>
+      <div id="package-body"></div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ---------- provenance drawer ---------- -->
+<div class="drawer-backdrop" id="prov-backdrop" hidden></div>
+<aside class="drawer" id="prov-drawer" role="dialog" aria-modal="true" aria-labelledby="prov-title" hidden>
+  <div class="drawer-head">
+    <h2 id="prov-title">Provenance</h2>
+    <button class="icon-btn" id="prov-close" type="button" aria-label="Close provenance">✕</button>
+  </div>
+  <div class="drawer-body" id="prov-body"></div>
+</aside>
+
+<!-- ---------- approval modal ---------- -->
+<div class="modal-backdrop" id="approval-backdrop" hidden>
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="approval-title">
     <div class="modal-head">
-      <svg viewBox="0 0 24 24" class="icon icon-lg"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9.5"/></svg>
-      <h2 id="approval-title">Approve the budget band</h2>
+      <svg viewBox="0 0 24 24" class="icon icon-lg" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9.5"/></svg>
+      <div>
+        <h2 id="approval-title">Approve the budget band</h2>
+        <p class="modal-kicker">Human-in-the-loop gate</p>
+      </div>
     </div>
     <p class="modal-sub">The Budget and Risk agents have finished. Review the grounded line items below, then approve to let the Resource Agent propose crew and locations — or reject to stop here.</p>
     <div id="approval-budget"></div>
     <div class="row modal-actions">
-      <button id="approve-no" class="ghost">Reject</button>
-      <button id="approve-yes" class="primary">Approve budget</button>
+      <button id="approve-no" class="ghost" type="button">Reject</button>
+      <button id="approve-yes" class="primary" type="button">Approve budget</button>
     </div>
   </div>
 </div>
 
-<script src="/app.js"></script>
+<script src="/views.js?v=6"></script>
+<script src="/app.js?v=6"></script>
 </body>
 </html>

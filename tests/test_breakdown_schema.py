@@ -66,8 +66,5 @@ def test_invalid_int_ext_is_rejected():
 
 
 def test_minimum_page_count_is_not_enforced_by_type_but_zero_is_valid_float():
-    # estimated_page_count is a float field; the *content* rule (never 0) is
-    # instruction-level guidance to the model, not a schema constraint, since
-    # the schema's job is shape validation, not creative judgment.
     scene = SceneBreakdown.model_validate(_scene(estimated_page_count=0.125))
     assert scene.estimated_page_count == 0.125

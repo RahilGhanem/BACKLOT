@@ -1,21 +1,4 @@
-"""Local dev entrypoint for the BACKLOT crew.
-
-Usage:
-    python run_local.py
-        Runs the full Line Producer spine (script -> breakdown -> schedule
-        -> package) and writes output/package.json.
-
-    python run_local.py --stage breakdown
-        Runs only the Script Supervisor and writes output/breakdown.json.
-
-    python run_local.py --screenplay path/to/script.txt --out path/to/out.json
-
-This bypasses Agent Engine entirely and uses ADK's InMemoryRunner + an
-in-memory session, so it works with nothing more than a Gemini credential
-in .env. Progress prints live as each crew member runs; if a run stops
-early (e.g. a quota limit), whatever state was produced up to that point
-is still written out rather than lost.
-"""
+"""Local dev entrypoint for the BACKLOT crew."""
 
 from __future__ import annotations
 
@@ -38,8 +21,6 @@ from backlot.orchestrator import build_line_producer
 from backlot.agents.script_supervisor import build_script_supervisor
 from backlot.schemas import ScriptBreakdown
 
-# Every key an agent might write into shared session state, in pipeline
-# order — used to salvage a partial package if a run stops early.
 _ARTIFACT_KEYS = [
     "breakdown",
     "previz",
@@ -71,10 +52,9 @@ async def _run_agent(
     agent: BaseAgent, screenplay_text: str
 ) -> tuple[dict, Exception | None]:
     """Runs `agent`, printing live progress, and returns whatever known
-    artifact keys exist in session state afterward, plus the exception if
-    the run stopped early (a quota limit, a model error, etc.) — partial
-    results are still useful and are never silently discarded.
-    """
+    artifact keys exist in session state afterward, plus the exception if the
+    run stopped early (a quota limit, a model error, etc.) — partial results
+    are still useful and are never silently discarded."""
     settings = get_settings()
     runner = InMemoryRunner(agent=agent, app_name=settings.app_name)
 
@@ -86,10 +66,6 @@ async def _run_agent(
 
     message = types.Content(role="user", parts=[types.Part(text=screenplay_text)])
 
-    # Hard safety cap: a runaway tool-calling loop shouldn't be able to
-    # burn through a whole day's free-tier quota in a single run (default
-    # RunConfig.max_llm_calls is 500 — far too loose for e.g. a
-    # 20-requests/day account).
     run_config = RunConfig(max_llm_calls=settings.max_llm_calls_per_run)
 
     error: Exception | None = None
@@ -126,10 +102,9 @@ async def run_script_supervisor(screenplay_text: str) -> ScriptBreakdown:
 async def run_line_producer(
     screenplay_text: str, auto_approve: bool = False, with_previz: bool = False
 ) -> tuple[dict, Exception | None]:
-    """Returns the raw artifact dict (not a validated ProductionPackage) so
-    a partial run — some steps done, one still missing — can still be
-    written out. main() assembles/prints from whatever's present.
-    """
+    """Returns the raw artifact dict (not a validated ProductionPackage) so a
+    partial run — some steps done, one still missing — can still be written
+    out."""
     settings = get_settings()
     settings.require_llm_credentials()
     check_mcp_reachable(settings)

@@ -1,6 +1,6 @@
 {
   "_synthetic": true,
-  "_disclaimer": "Fabricated data for demo/dev purposes only. Not real production financials. Served by mcp_shim (Phase 3) as the offline dev fallback for MCP_MODE=clickhouse's real ClickHouse cluster (see scripts/clickhouse_load.sql, which loads this same data for real).",
+  "_disclaimer": "Fabricated data for demo/dev purposes only. Not real production financials. Loaded into ClickHouse by scripts/clickhouse_load.sql and served by mcp_shim in offline mode.",
   "currency": "USD",
   "records": [
     {
@@ -8,42 +8,63 @@
       "description": "Night exterior, industrial/lot setting, minimal cast, practical lighting rig",
       "avg_cost_per_day": 38500,
       "sample_size": 6,
-      "comparable_titles": ["Low Tide (2023)", "Backlot Nine (2024)", "Quiet Freight (2024)"]
+      "comparable_titles": [
+        "Low Tide (2023)",
+        "Backlot Nine (2024)",
+        "Quiet Freight (2024)"
+      ]
     },
     {
       "scene_profile": "INT_CONTINUOUS_VEHICLE",
       "description": "Interior vehicle (process trailer or insert car), 2-3 cast, night continuity",
       "avg_cost_per_day": 27200,
       "sample_size": 9,
-      "comparable_titles": ["Backlot Nine (2024)", "Redline (2022)", "Two Lane (2025)"]
+      "comparable_titles": [
+        "Backlot Nine (2024)",
+        "Redline (2022)",
+        "Two Lane (2025)"
+      ]
     },
     {
       "scene_profile": "EXT_NIGHT_LOADING_DOCK",
       "description": "Night exterior, single-location dock/warehouse exterior, small cast, minor stunts",
       "avg_cost_per_day": 41800,
       "sample_size": 5,
-      "comparable_titles": ["Quiet Freight (2024)", "Night Shift (2023)"]
+      "comparable_titles": [
+        "Quiet Freight (2024)",
+        "Night Shift (2023)"
+      ]
     },
     {
       "scene_profile": "EXT_NIGHT_HIGHWAY_VEHICLE",
       "description": "Night exterior highway/road work, moving vehicle unit, weather element (rain)",
       "avg_cost_per_day": 61200,
       "sample_size": 4,
-      "comparable_titles": ["Two Lane (2025)", "Redline (2022)"]
+      "comparable_titles": [
+        "Two Lane (2025)",
+        "Redline (2022)"
+      ]
     },
     {
       "scene_profile": "INT_DAY_GARAGE_WORKSHOP",
       "description": "Day interior, practical location (garage/workshop), 3 cast, standard lighting",
       "avg_cost_per_day": 22400,
       "sample_size": 7,
-      "comparable_titles": ["Backlot Nine (2024)", "Cash Value (2023)"]
+      "comparable_titles": [
+        "Backlot Nine (2024)",
+        "Cash Value (2023)"
+      ]
     },
     {
       "scene_profile": "INT_DAY_STANDARD",
       "description": "Day interior, standard dressed set, dialogue-driven scene",
       "avg_cost_per_day": 18900,
       "sample_size": 12,
-      "comparable_titles": ["Cash Value (2023)", "Low Tide (2023)", "Night Shift (2023)"]
+      "comparable_titles": [
+        "Cash Value (2023)",
+        "Low Tide (2023)",
+        "Night Shift (2023)"
+      ]
     }
   ]
 }

@@ -1,13 +1,4 @@
-"""Small fuzzy-matching helpers used by the shim's tool implementations.
-
-An LLM asking for e.g. "rain effects" won't always spell a catalog key
-exactly as it's stored ("rain_effects_unit"), and a real ClickHouse
-deployment resolves this kind of near-miss with a `column ILIKE '%token%'`
-SQL query instead (see budget.py/resource.py's clickhouse-mode
-instructions). Token-overlap scoring is the deterministic, dependency-free
-stand-in for that here — good enough to make grounding actually succeed in
-typical cases without ever inventing a match that isn't there.
-"""
+"""Small fuzzy-matching helpers used by the shim's tool implementations."""
 
 from __future__ import annotations
 
@@ -48,11 +39,8 @@ def date_ranges_overlap(
     available_from: str,
     available_to: str,
 ) -> bool:
-    """True if [window_start, window_end] overlaps [available_from, available_to].
-
-    A missing window (either side None) means "no date constraint requested"
-    and always overlaps.
-    """
+    """True if [window_start, window_end] overlaps [available_from,
+    available_to]."""
     if window_start is None or window_end is None:
         return True
     ws, we = date.fromisoformat(window_start), date.fromisoformat(window_end)

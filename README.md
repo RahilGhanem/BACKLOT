@@ -1,288 +1,335 @@
 # BACKLOT
 
-**An autonomous pre-production crew**, built for the *Agentic Cinema: The
-Blockbuster Hackathon* (Google Cloud + Gemini Enterprise Agent Platform,
-ClickHouse MCP partner track).
+An autonomous pre-production crew for film.
 
-Drop in a screenplay. A network of specialised agents — orchestrated with
-Google's Agent Development Kit (ADK) — returns a complete, shootable
-production package: a scene-by-scene breakdown, an optimised shooting
-schedule, a budget grounded in a studio's own historical cost data (which
-lives in ClickHouse, queried via the official ClickHouse MCP server), real
-crew/location picks, a ranked risk report, and (later) generative previz.
-Every budget/resource number the crew produces is grounded and cites its
-source — never invented by the model.
+BACKLOT takes a screenplay and returns a production package: a scene
+breakdown, a shooting schedule, a costed budget, a risk report, crew and
+location picks, and the producer's approval decision. Seven specialised
+agents do the work, coordinated by a Line Producer that holds shared state
+and enforces the order they run in.
 
-## Status
+The budget and resource agents don't estimate from the model's priors. They
+query the studio's own cost history in ClickHouse through the official MCP
+server, and every figure they return carries the row it came from. Values
+they couldn't match to a record are marked ungrounded rather than filled in.
 
-This repo is being built phase by phase. Each phase is runnable end-to-end
-before the next one starts.
+---
 
-- [x] **Phase 0** — scaffold, license, sample data
-- [x] **Phase 1** — Script Supervisor: screenplay → structured breakdown JSON
-- [x] **Phase 2** — Line Producer orchestrator + 1st-AD Scheduler (the
-      end-to-end spine: script → breakdown → schedule)
-- [x] **Phase 3** — ClickHouse MCP grounding (Budget + Resource agents, via
-      a local synthetic mcp_shim server)
-- [x] **Phase 4** — Risk/Continuity agent (bounded re-plan loop), human
-      approval gate, scoped tool permissions
-- [x] **Phase 5** — FastAPI + web UI, live agent-activity panel, metrics
-- [x] **Phase 6** — Previz (Imagen storyboards, Veo animatic, Lyria cue) —
-      opt-in, see caveat below
-- [x] **Phase 7** — Deploy to Agent Engine + Cloud Run; point the MCP client
-      at a real ClickHouse cluster via the official ClickHouse MCP server —
-      see `docs/DEPLOYMENT.md`
+## Why BACKLOT
 
-## Why this shape
+Pre-production decides a film's schedule and budget, and it's the cheapest
+place to catch a mistake. A 1st AD packs scenes into shoot days. A line
+producer costs those days against what comparable productions actually
+spent. Somebody has to notice that four consecutive night exteriors will
+exhaust the crew before the schedule gets locked.
 
-Pre-production is where a film's schedule and budget get decided, and where
-mistakes are cheapest to catch and most expensive to miss. Existing tools
-(Filmustage, Movie Magic, Cinelytic) are strong single-purpose assistants,
-but none of them run as an autonomous crew that plans across the whole
-pipeline and grounds its numbers in a studio's own data. That gap — isolated
-tools instead of an orchestrated, data-grounded, tool-wielding team — is
-what this project closes.
+Tools exist for each of those jobs individually. What doesn't exist is a
+system that runs the whole sequence, checks its own output, and costs the
+plan against the studio's real numbers instead of a plausible guess.
 
-## Architecture (target — see roadmap above for what's built so far)
+## The production spine
 
 ```
- USER (producer / 1st AD)
-   │ uploads screenplay · approves budget band
+                SCREENPLAY
+                    │
+             SCRIPT BREAKDOWN
+                    │
+                 SCHEDULE ◀────────────┐
+                    │                  │
+                  BUDGET ──────────┐   │  bounded
+                    │              │   │  re-plan
+                   RISK ───────────┴───┘  (max 2)
+                    │
+             HUMAN APPROVAL          ← execution stops here
+                    │
+                RESOURCES
+                    │
+            PRODUCTION PACKAGE
+```
+
+Budget and Resources are the two grounded steps. Both read the studio
+dataset in ClickHouse over MCP and carry the source record forward with the
+value.
+
+## Design notes
+
+Four things distinguish this from a linear agent chain:
+
+**Adversarial review.** The Risk agent reads the Scheduler's and Budget
+agent's output and can reject the plan. It isn't a summariser at the end of
+the pipeline; its verdict changes what happens next.
+
+**A real second planning pass.** A rejection returns the plan to the
+Scheduler with a widened pages-per-day target, then re-costs and re-reviews
+it. The loop is capped and the constraint change is deterministic.
+
+**A blocking human decision.** The Resource agent proposes actual crew and
+locations, so it doesn't run until a producer approves the budget band.
+Rejection ends the run with `resources: null`.
+
+**Traceable numbers.** Grounded values carry a `source_records` entry naming
+the table and row behind them, and the UI walks that back from a decision to
+the agent, the tool, the dataset and the record.
+
+## Architecture
+
+```
+ Producer (web UI)
+   │  uploads screenplay · approves the budget band
    ▼
- FRONTEND (FastAPI + minimal web UI)
+ FastAPI + web UI          backlot/api/
    ▼
- LINE PRODUCER (custom ADK orchestrator — see note below)
-   ├─ Script Supervisor   (screenplay → breakdown JSON)          [Phase 1 ✅]
-   ├─ Previz Agent        (opt-in: Imagen/Veo/Lyria for the       [Phase 6 ✅]
-   │                       opening scene, runs as soon as the
-   │                       breakdown exists)
-   │                                                    ┌──── bounded
-   ├─ 1st-AD Scheduler    (breakdown → stripboard sched)│     re-plan loop
-   ├─ Budget Agent        (grounded via ClickHouse MCP) │     (max 2 retries,
-   ├─ Risk/Continuity     (critiques sched+budget) ──────┘     Phase 4 ✅)
-   ├─ Approval Gate       (producer approves the budget band)  [Phase 4 ✅]
-   ├─ Resource Agent      (grounded via ClickHouse MCP;         [Phase 3 ✅]
-   │                       skipped if the budget was rejected)
-   └─ Package Assembler   (combines everything above)          [Phase 2 ✅]
-   │
+ Line Producer             backlot/orchestrator/line_producer.py
+   ├─ Script Supervisor    screenplay → structured breakdown
+   ├─ 1st-AD Scheduler     breakdown → stripboard (deterministic solver)
+   ├─ Budget Agent         grounded via ClickHouse MCP
+   ├─ Risk / Continuity    critiques schedule + budget, may force a re-plan
+   ├─ Approval Gate        producer decision, blocks the pipeline
+   ├─ Resource Agent       grounded via ClickHouse MCP
+   └─ Package Assembler    assembles the final package
    ▼
- CLICKHOUSE MCP SERVER (mcp_shim locally with synthetic data; the
- real, official ClickHouse MCP server — github.com/ClickHouse/
- mcp-clickhouse — connected to a ClickHouse Cloud or self-hosted
- cluster in production. Swapping is an env-var change only, see
- .env.example)
+ mcp-clickhouse (official MCP server) ──▶ ClickHouse
 ```
 
-Agents exchange **compact structured JSON artifacts** (the breakdown, the
-schedule, the budget) rather than raw transcripts or the full screenplay —
-this is the token-efficiency story: only the Script Supervisor ever reads
-the whole script.
+Agents hand each other compact JSON artifacts rather than transcripts. Only
+the Script Supervisor ever sees the full screenplay, which keeps the token
+cost of a run roughly flat as the script gets longer.
 
-**On "ADK orchestrator":** the installed ADK version (2.5.0) deprecates
-`SequentialAgent`/`LoopAgent` in favor of a newer, graph-based `Workflow`
-primitive that isn't yet usable as a plain `BaseAgent` (it can't be handed
-to `Runner`). The Line Producer's control flow also stopped being purely
-linear once the re-plan loop and the approval-gate skip were added, which
-`SequentialAgent` couldn't express anyway. So it stays a small, explicit
-custom `BaseAgent` — see `backlot/orchestrator/line_producer.py`.
+The Line Producer is a custom ADK `BaseAgent` rather than a
+`SequentialAgent`, because the control flow isn't linear: it needs a capped
+retry loop around Scheduler/Budget/Risk, a conditional skip of the Resource
+agent when a budget is rejected, and an optional previz step.
 
-**Governance, concretely, as of Phase 4:**
-- *Scoped tool access* — each MCP-calling agent gets its own `McpToolset`
-  with a `tool_filter`: the Budget Agent can only call the two cost-lookup
-  tools, the Resource Agent only the crew/location tools. Neither can reach
-  a tool the other owns.
-- *Bounded reflection* — the Risk Agent can force a re-plan, but the Line
-  Producer caps it at `max_replans` (default 2) and shrinks the scheduler's
-  pages/day budget deterministically each time, so a stuck loop can't run
-  away with cost or time.
-- *Human approval gate* — the Resource Agent (the step closest to actually
-  committing something) only runs if the budget is approved;
-  `backlot/agents/approval_gate.py` blocks on a CLI prompt by default, but
-  takes an injectable decider so Phase 5's API can swap in an HTTP
-  approve/reject flow without touching the orchestrator.
-- *Injection-safe tool data* — every agent's instruction states that
-  retrieved data (screenplay text, MCP records) is data, never instructions
-  to follow; structurally, tool results also arrive as distinct
-  function-response content blocks in the Gemini API, not concatenated
-  into the prompt as free text.
+## The agents
 
-**On Previz (Phase 6), concretely:** it's opt-in (`--with-previz` /
-the UI checkbox) because it costs real money and a Veo clip can take
-minutes — nothing in the default pipeline or test suite triggers it.
-Imagen (`generate_images`) and Veo (`generate_videos`, a long-running
-operation, polled via `client.operations.get`) are called through the
-verified, stable `google-genai` `client.models` surface. Lyria, in the
-installed SDK, only exists behind a much newer, separate "Interactions"
-API (`client.interactions`) that could not be exercised against a live
-billed call in this environment; `backlot/tools/previz_generation.py`
-makes a best-effort call against it and degrades gracefully (storyboards/
-animatic still complete, a warning is recorded) if it fails — verify that
-call against current docs before a live demo.
+| Agent | Role | Grounded |
+|---|---|---|
+| **Script Supervisor** | Parses the screenplay into scenes: slugline, INT/EXT, time of day, cast, props, vehicles, VFX, stunts, page count | — |
+| **1st-AD Scheduler** | Packs scenes into shoot days by location and continuity. A solver, not a model | — |
+| **Budget Agent** | Costs each shoot day and vendor line against historical studio data | ClickHouse |
+| **Risk / Continuity** | Reviews the plan for weather, permit, overtime, continuity and feasibility problems; can demand a re-plan | — |
+| **Approval Gate** | Presents the costed budget to a human and waits | — |
+| **Resource Agent** | Proposes crew and locations from the studio libraries | ClickHouse |
+| **Package Assembler** | Combines every artifact into the deliverable | — |
 
-## Repo structure
+Scheduling is deterministic on purpose. The same breakdown always produces
+the same stripboard, which is what lets the re-plan loop detect that a
+second pass changed nothing and stop early.
 
-```
-backlot/
-  config.py             # the only place that reads os.getenv — see .env.example
-  schemas/               # pydantic contracts agents hand off between each other
-  agents/                 # one LlmAgent (or custom BaseAgent) factory per specialist
-  orchestrator/            # Line Producer
-  tools/                    # custom tools: the scheduling solver, previz_generation.py
-  mcp_shim/                  # local synthetic MCP server (Phase 3)
-  metrics.py                  # evaluation scorecard, computed from the ADK event log
-  api/                         # FastAPI backend + static web UI (Phase 5)
-    run_manager.py              # tracks background runs, relays HTTP approvals
-    app.py                       # routes
-    static/                        # plain HTML/CSS/JS, no build step
-data/
-  screenplays/                # sample screenplay(s) used for local dev/tests
-  studio_dataset/               # synthetic historical costs, rates, crew, locations,
-                                 # past schedules — served by mcp_shim
-tests/                          # pytest; schema/solver/shim/metrics/API tests always
-                                 # run, live-model tests skip automatically without
-                                 # credentials (see Testing below)
-deploy/                          # Phase 7 — see docs/DEPLOYMENT.md
-  cloud_run/                      # deploy.sh (main app), deploy_mcp_shim.sh (optional)
-  agent_engine/                    # ADK CLI's expected root_agent convention
-docs/
-  DEPLOYMENT.md                    # the full Phase 7 write-up
-run_local.py                     # CLI entrypoint for local, in-memory runs
-run_server.py                     # FastAPI + web UI entrypoint
-Dockerfile                        # Cloud Run image for the FastAPI app + UI
-Dockerfile.mcp_shim                # optional Cloud Run image for the synthetic MCP shim
+## Grounded studio data
+
+The Budget and Resource agents issue SQL against the studio's tables through
+the official [mcp-clickhouse](https://github.com/ClickHouse/mcp-clickhouse)
+server:
+
+| Table | Contents |
+|---|---|
+| `historical_costs` | Day rates by scene profile from comparable productions |
+| `vendor_rates` | Camera, grip/electric, catering, picture vehicles, FX, security |
+| `crew_library` | Crew with day rate, union, region and availability |
+| `location_library` | Locations with permit cost, night-shoot support, power access |
+| `past_schedules` | Realised pages/day from previous productions |
+
+Each agent is scoped to two tools, `run_query` and `list_tables`, through a
+`tool_filter`. Neither can reach anything else on the server.
+
+A grounded value looks like this in the package:
+
+```json
+{
+  "label": "Shoot Day 1: EXT. INDUSTRIAL LOT - NIGHT (Scene 1)",
+  "amount": 38500.0,
+  "grounded": true,
+  "source_records": [{
+    "record_id": "EXT_NIGHT_INDUSTRIAL",
+    "summary": "Historical average cost of $38,500/day based on 6 comparable productions.",
+    "source": "clickhouse:backlot_studio.historical_costs"
+  }]
+}
 ```
 
-## Setup
+When no row matches, `grounded` is `false` and `source_records` is empty.
+The UI lists those separately instead of burying them.
+
+## Human-in-the-loop
+
+The Approval Gate sits between costing and commitment. Everything before it
+is analysis; the Resource agent after it proposes real crew and locations,
+so a producer approves the budget band first.
+
+The gate takes an injectable decider. On the CLI it blocks on stdin; in the
+web UI it blocks until an HTTP approve or reject arrives. The orchestrator
+doesn't know or care which.
+
+## Re-planning
+
+If the Risk agent judges a schedule infeasible it sets `replan_requested`,
+and the schema requires it to justify that with a high-severity flag
+carrying both a description and a recommendation. An unjustified re-plan
+request fails validation.
+
+The Line Producer then re-runs Scheduler → Budget → Risk with a widened
+pages-per-day target. Three things bound the loop: a cap of two re-plans, a
+deterministic constraint change on each pass, and a fixed-point check that
+stops early if the new schedule matches the previous one.
+
+## The production package
+
+A run produces one JSON document: breakdown, schedule, budget with per-line
+provenance, risk report, approval decision, resource picks, and previz if it
+was enabled. You can download it from the UI and reopen it later to review a
+run without executing the crew again.
+
+The web UI presents this as a control room. A live pipeline shows each agent
+station and the value it produced, with the re-plan drawn as an actual loop
+back to the Scheduler when one happens. Below that: a stripboard in the
+standard 1st-AD colour convention, a shooting board, budget composition, a
+risk map linked to the scenes and days each flag affects, and a grounding
+ledger naming every claim that couldn't be grounded.
+
+## Screenshots and demo
+
+_Demo video: (add link)_
+
+_Hosted instance: (add link)_
+
+## Technology
+
+- **Gemini** via the **Google Agent Development Kit** (ADK 2.5.0)
+- **Model Context Protocol**, using `mcp-clickhouse` 0.6.0
+- **ClickHouse** for the studio dataset
+- **FastAPI** for the backend and static hosting
+- Plain HTML, CSS and JavaScript on the frontend. No framework, no build step
+- **Cloud Run** as the container target (`Dockerfile` at the repo root)
+
+## Local development
 
 Requires Python 3.11+.
 
 ```bash
 python -m venv .venv
-# Windows (Git Bash):
-source .venv/Scripts/activate
-# macOS/Linux:
-source .venv/bin/activate
-
+source .venv/Scripts/activate      # Windows (Git Bash)
+source .venv/bin/activate          # macOS/Linux
 pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Edit `.env` and set **one** of:
-- `GOOGLE_API_KEY` (AI Studio — fastest for local dev), or
-- `GOOGLE_GENAI_USE_ENTERPRISE=TRUE` + `GOOGLE_CLOUD_PROJECT` (Vertex AI —
-  matches the production deployment path; requires
-  `gcloud auth application-default login` or a service account).
+Set one model credential in `.env`:
 
-Nothing else in this repo reads an environment variable directly outside
-`backlot/config.py` — that's the one place to check if you need to add a
-new setting.
+- `GOOGLE_API_KEY` for AI Studio, which is quickest for local work, or
+- `GOOGLE_GENAI_USE_ENTERPRISE=TRUE` plus `GOOGLE_CLOUD_PROJECT` for Vertex
+  AI, which is what the Cloud Run deployment uses. Needs
+  `gcloud auth application-default login` or a service account.
 
-## Running it
+`backlot/config.py` is the only module that reads environment variables.
 
-The Budget and Resource agents need the MCP server reachable. Start the
-local synthetic one in one terminal:
+### Running against ClickHouse
 
-```bash
-python -m backlot.mcp_shim.server
-```
-
-Then, in another terminal, run the crew:
+`mcp-clickhouse` requires `mcp` 2.x, and this application pins `mcp` 1.29.0
+for ADK. They cannot share a virtual environment, so the MCP server runs as
+its own process:
 
 ```bash
-python run_local.py
+python -m venv .mcp-clickhouse-venv
+.mcp-clickhouse-venv/Scripts/python.exe -m pip install mcp-clickhouse==0.6.0
 ```
 
-This parses `data/screenplays/sample_screenplay.txt` through the full crew
-(breakdown → schedule → grounded budget → risk critique → **approval
-prompt** → grounded resources → assembled package) and writes
-`output/package.json`. The run pauses in your terminal to ask you to
-approve the budget band — answer `y` to continue to resource picks, or
-anything else to see the package with `resources: null`. Pass
-`--auto-approve` to skip the prompt and always approve (useful for demos
-and CI). Use `--stage breakdown` to run only the Script Supervisor (no MCP
-server needed) and write `output/breakdown.json` instead. Pass
-`--screenplay` / `--out` for a different input/output path. Add
-`--with-previz` to also generate a storyboard/animatic/music cue for the
-opening scene (real Vertex AI Imagen/Veo cost and time; see the Previz
-caveat above) — written under `output/previz/<run-id>/`.
+Load the dataset into your cluster, either from the ClickHouse Cloud SQL
+console or with `clickhouse-client --multiquery < scripts/clickhouse_load.sql`.
+It creates `backlot_studio` and mirrors `data/studio_dataset/*.json`: 6
+`historical_costs`, 12 `vendor_rates`, 10 `crew_library`, 6
+`location_library`, 5 `past_schedules`.
 
-### Web UI
+Fill in the `CLICKHOUSE_*` block in `.env`, then start the MCP server in its
+own terminal:
 
-With the MCP shim still running, start the API + UI instead:
+```powershell
+.\scripts\start_mcp_clickhouse.ps1
+```
+
+Set `MCP_MODE=clickhouse` and `CLICKHOUSE_MCP_URL=http://127.0.0.1:8766/mcp`,
+then run the crew:
 
 ```bash
-python run_server.py
+python run_local.py --auto-approve      # CLI
+python run_server.py                    # web UI at http://127.0.0.1:8000
 ```
 
-Open `http://127.0.0.1:8000`. Load the sample screenplay (or paste your
-own), click **Run the crew**, and watch each crew member light up live —
-Script Supervisor → Scheduler → Budget → Risk → Approval Gate → Resource →
-Package Assembler — as pending / working / done, with a re-plan badge if
-the bounded reflection loop fires (a "show detailed log" toggle reveals
-the raw per-event feed underneath). When the run reaches the approval
-gate, a modal shows the actual grounded budget line items — not a
-placeholder — before you approve or reject; this is the same
-human-in-the-loop gate `run_local.py` shows on the CLI, just relayed over
-HTTP instead of blocking on stdin (see `backlot/api/run_manager.py`). The
-finished package renders as tabs (Breakdown / Schedule / Budget / Risk /
-Resources / Previz) with provenance badges on every grounded claim, a
-one-click JSON download, and the evaluation scorecard alongside. Check
-"Generate previz" before running to include the storyboard/animatic/music
-cue tab.
+`run_local.py` also takes `--screenplay`, `--out`, `--stage breakdown` (the
+Script Supervisor alone, no MCP server needed) and `--with-previz`.
+
+### Without a ClickHouse cluster
+
+`MCP_MODE=shim` runs a local MCP server carrying the same synthetic dataset
+(`python -m backlot.mcp_shim.server`), so the repository works with no
+external services. It's there for offline development. The ClickHouse path
+above is the real integration.
 
 ## Testing
 
 ```bash
-pytest -v
+pytest -q
 ```
 
-- Schema, scheduler-solver, mcp_shim, metrics, API-routing, and
-  agent-configuration tests run with no credentials and no manually-started
-  server.
-- Tests that need the MCP server (Budget/Resource/full-pipeline) auto-start
-  `mcp_shim` as a subprocess via the `mcp_shim_process` fixture in
-  `tests/conftest.py` — nothing to run by hand for `pytest`.
-- Tests that actually call Gemini are skipped automatically if `.env` has
-  no Gemini credentials configured, and must pass once you add one.
-- The one test that would actually call Imagen/Veo (real money) needs a
-  *second*, explicit opt-in beyond credentials: `RUN_PREVIZ_LIVE_TESTS=1`.
-  Nothing else in the suite sets this, so a routine `pytest -v` never
-  triggers billed generative-media calls.
+With no credentials and no external services running: **87 passed, 11
+skipped**. Start the ClickHouse MCP server and the three MCP integration
+tests run too: **90 passed, 8 skipped**. The remaining skips need Gemini
+credentials, and skip cleanly without them.
 
-## Deploying
+- Schema, solver, MCP, metrics, API and agent-configuration tests run with
+  no credentials.
+- `tests/test_clickhouse_integration.py` runs against a real cluster through
+  the real MCP server when `BACKLOT_TEST_CLICKHOUSE_MCP_URL` is set. It
+  checks row counts, tool scoping, and that every grounded budget amount
+  actually exists in ClickHouse.
+- Previz is the only path that spends money on generative media, and it
+  needs a second opt-in beyond credentials (`RUN_PREVIZ_LIVE_TESTS=1`). A
+  normal `pytest` run never triggers a billed call.
 
-See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the full write-up. Short
-version: `./deploy/cloud_run/deploy.sh` deploys the complete app (full
-human-in-the-loop approval flow) to Cloud Run — this is the one to demo.
-`./deploy/agent_engine/deploy.sh` deploys just the crew to Vertex AI Agent
-Engine via the ADK CLI, auto-approving the budget band since Agent
-Engine's native session API doesn't have anywhere to plug in the same
-HTTP-approval-relay the Cloud Run deployment uses. Neither script has been
-run against a live project — every flag is grounded in the installed
-`adk`/`gcloud` CLIs' own `--help` output, but verify before a real deploy.
+## Deployment
 
-## Data note
+The application is containerised and targets Cloud Run.
+`deploy/cloud_run/deploy.sh` deploys the full FastAPI application, which is
+the deployment that keeps the human-in-the-loop approval flow intact.
+`deploy/agent_engine/deploy.sh` deploys the crew alone to Vertex AI Agent
+Engine and auto-approves, since Agent Engine's session API has nowhere to
+relay an HTTP approval.
 
-Everything under `data/studio_dataset/` is **synthetic** — fabricated
-numbers for demo and development, clearly marked with a `"_synthetic": true`
-flag in each file. It exists to exercise the ClickHouse MCP grounding path
-without needing a live ClickHouse connection during development.
+> **Status:** these scripts have not been run against a live GCP project and
+> there is no hosted instance yet. The Dockerfile is build- and run-tested
+> locally and respects the `$PORT` Cloud Run injects. Check
+> `gcloud run deploy --help` against your CLI version before the first
+> deploy. Details in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
-The real grounding story: the studio's historical cost data, vendor rates,
-and crew/location libraries live in **ClickHouse**; the Budget/Resource
-agents query them via the real, official ClickHouse MCP server
-(`mcp-clickhouse`, github.com/ClickHouse/mcp-clickhouse) for grounded
-estimates. Pointing the agents at a real ClickHouse Cloud or self-hosted
-cluster instead of this synthetic shim is `MCP_MODE=clickhouse` plus a few
-more env vars — see `.env.example`'s ClickHouse section for exactly which
-ones, `scripts/clickhouse_load.sql` for the one-time DDL/load script that
-puts this same synthetic data into real ClickHouse tables, and
-`backlot/agents/_state_instructions.py`'s `clickhouse_sql_rule` /
-`backlot/agents/budget.py` / `resource.py` for how the agents issue real SQL
-SELECTs (via that server's `run_query`/`list_tables` tools, verified against
-mcp-clickhouse's own README) once pointed there — no other code changes
-needed either way.
+The Cloud Run configuration sets `GOOGLE_GENAI_USE_ENTERPRISE=TRUE` so every
+agent routes through Vertex AI, with no API key in the container. The
+ClickHouse password never reaches this application; it's configured only on
+whatever process runs `mcp-clickhouse`.
+
+## Optional: generative previz
+
+Storyboard frames, a short animatic and a temp music cue for the opening
+scene, using Gemini image generation, Veo and Lyria. Off by default and not
+part of the core workflow, since these are billed calls and a Veo clip can
+take several minutes. Turn it on with `--with-previz` or the checkbox in the
+UI.
+
+`VEO_MODEL` defaults to the Vertex AI GA identifier to match the deployment
+target. The AI Studio surface exposes preview identifiers instead, so a
+local API-key previz run needs one of those.
+
+## Data
+
+Everything in `data/studio_dataset/` is synthetic. The figures are
+fabricated for demonstration and each file carries a `"_synthetic": true`
+flag. Real historical cost data is exactly the sort of thing a studio would
+never publish, so this stands in for it.
+
+The integration itself is real. `scripts/clickhouse_load.sql` loads this
+dataset into actual ClickHouse tables, and the agents query it over MCP at
+runtime. Swapping in a studio's real tables is a configuration change, not a
+code change.
 
 ## License
 
-Apache License 2.0 — see [LICENSE](LICENSE).
+Apache License 2.0. See [LICENSE](LICENSE).

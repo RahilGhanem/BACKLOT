@@ -1,18 +1,4 @@
-"""Confirms the re-plan demo screenplay's structural claim (Gap 4) with
-the deterministic scheduler alone, no LLM/credentials needed: six
-consecutive EXT/NIGHT scenes at six distinct locations must produce six
-consecutive night shoot days, past the Risk agent's ">3 consecutive
-night shoot days" bar for requesting a re-plan (see backlot/agents/risk.py
-and backlot/orchestrator/line_producer.py's _longest_consecutive_night_run).
-
-This doesn't run the real Script Supervisor against
-data/screenplays/replan_demo_screenplay.txt (that needs live Gemini
-credentials, covered separately by the live-gated pipeline tests) — it
-hand-builds a breakdown with the same location/int-ext/time-of-day shape a
-correct breakdown of that screenplay would have, so the scheduling
-mechanics this demo depends on are verified on every `pytest -v`, not just
-when credentials happen to be configured.
-"""
+"""Confirms the re-plan demo screenplay's structure with the scheduler alone, no LLM call."""
 
 from __future__ import annotations
 
@@ -71,9 +57,6 @@ def _replan_demo_breakdown() -> ScriptBreakdown:
 def test_replan_demo_screenplay_shape_produces_six_consecutive_night_days():
     schedule = solve_schedule(_replan_demo_breakdown(), max_pages_per_day=DEFAULT_MAX_PAGES_PER_DAY)
 
-    # Six distinct EXT/NIGHT locations never share a day (scheduler_solver.py
-    # never packs two locations together), so each gets exactly one day, in
-    # script order, ahead of the single closing DAY scene.
     assert schedule.total_shoot_days == 7
     night_days = schedule.days[:6]
     assert all(day.time_of_day is TimeOfDay.NIGHT for day in night_days)
@@ -82,8 +65,4 @@ def test_replan_demo_screenplay_shape_produces_six_consecutive_night_days():
 
     night_run = _longest_consecutive_night_run(schedule)
     assert night_run == 6
-    # This is exactly the condition backlot/orchestrator/line_producer.py
-    # checks to pick the "grow the pages/day cap" re-plan lever, and the
-    # threshold backlot/agents/risk.py's instruction tells the model to
-    # request a re-plan for.
     assert night_run > 3

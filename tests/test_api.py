@@ -1,11 +1,4 @@
-"""FastAPI backend tests.
-
-Routing/validation tests always run (no network, no live model). The
-full-flow test exercises the actual HTTP approval relay (POST /approve
-unblocking the async decider awaited inside the running pipeline task) end
-to end and is skipped without Gemini credentials + the MCP shim, same as
-the other live-gated tests.
-"""
+"""FastAPI backend tests."""
 
 from __future__ import annotations
 

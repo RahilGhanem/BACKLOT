@@ -1,8 +1,5 @@
 """The Resource Agent: proposes real crew and locations grounded in the
-studio's own libraries. Those libraries live in ClickHouse; this agent
-queries them via the real, official ClickHouse MCP server (mcp-clickhouse)
-in production, or mcp_shim locally for offline dev — selected by MCP_MODE
-(see config.py and _state_instructions.py's clickhouse_sql_rule)."""
+studio's own libraries."""
 
 from __future__ import annotations
 

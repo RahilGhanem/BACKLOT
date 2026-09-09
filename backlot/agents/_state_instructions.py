@@ -1,11 +1,4 @@
-"""Builds InstructionProvider callables that inject compact JSON state.
-
-ADK's built-in `{var_name}` instruction templating stringifies session
-state via Python's str(dict) (single-quoted repr), not proper JSON. For
-agents that need to reason over structured upstream artifacts (Budget,
-Resource), a hand-rolled json.dumps gives the model cleaner, more reliably
-parsed input.
-"""
+"""Builds InstructionProvider callables that inject compact JSON state."""
 
 from __future__ import annotations
 
@@ -17,31 +10,12 @@ from google.adk.agents.readonly_context import ReadonlyContext
 from ..config import Settings
 
 
-# Real, official ClickHouse MCP server tool names, verified against
-# github.com/ClickHouse/mcp-clickhouse's own README (its "MCP Tools" list —
-# not guessed. run_chdb_select_query (a separate, local chDB-embedded
-# engine, not the real cluster) and list_databases are deliberately left
-# out of the filter: Budget/Resource already know their database name (see
-# clickhouse_sql_rule below) and only ever need to read two things — the
-# schema of a table they're unsure about, and rows via a SELECT.
-#
-# Unlike mcp_shim's per-domain tools (get_comparable_costs vs
-# find_available_crew), the real server's tool surface is domain-agnostic —
-# both agents get the same two tools and are scoped to their own tables by
-# instruction (below) rather than by tool_filter. For tighter isolation than
-# that, run the MCP server itself with a ClickHouse user that only has
-# SELECT on the relevant tables (mcp-clickhouse's own
-# CLICKHOUSE_ALLOW_WRITE_ACCESS/CLICKHOUSE_ALLOW_DROP should stay unset/
-# false for this deployment either way — Budget/Resource never write).
 CLICKHOUSE_TOOL_FILTER = ["run_query", "list_tables"]
 
 
 def clickhouse_sql_rule(settings: Settings, tables: str) -> str:
-    """Shared instruction block for any agent querying the real ClickHouse
-    MCP server directly with SQL, instead of mcp_shim's fuzzy-matched tool
-    calls. `tables` is a short description of the table(s) this particular
-    agent should query (columns included) — see budget.py / resource.py.
-    """
+    """Shared instruction block for any agent querying the real ClickHouse MCP
+    server directly with SQL, instead of mcp_shim's fuzzy-matched tool calls."""
     database = settings.clickhouse_database or "<CLICKHOUSE_DATABASE not set>"
     return f"""\
 You are connected to a real ClickHouse cluster via MCP — tool names and \

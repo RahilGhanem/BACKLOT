@@ -1,11 +1,4 @@
-"""Shared pytest fixtures.
-
-`mcp_shim_process` auto-starts the local synthetic MCP server for tests
-that need it (Budget/Resource/full-pipeline live tests), so contributors
-don't have to remember to launch it in a second terminal. If something is
-already listening on the configured host/port (e.g. a developer started it
-manually), the fixture leaves it alone and does not manage its lifecycle.
-"""
+"""Shared pytest fixtures."""
 
 from __future__ import annotations
 
@@ -35,7 +28,7 @@ def mcp_shim_process():
     host, port = parsed.hostname or "127.0.0.1", parsed.port or 8765
 
     if _is_listening(host, port):
-        yield  # already running (started manually, or by an earlier test session)
+        yield
         return
 
     proc = subprocess.Popen(

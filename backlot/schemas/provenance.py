@@ -1,9 +1,4 @@
-"""Shared provenance contract for anything grounded via MCP.
-
-Every budget/resource claim a professional would want to trust must cite the
-MCP record it came from (or be explicitly marked ungrounded) — this is the
-type that citation lives in.
-"""
+"""Shared provenance contract for anything grounded via MCP."""
 
 from __future__ import annotations
 

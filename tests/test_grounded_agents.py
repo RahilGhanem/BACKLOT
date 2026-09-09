@@ -1,10 +1,4 @@
-"""Budget/Resource agent tests.
-
-Construction/config tests always run (no network, no MCP server). The live
-tests actually call Gemini AND require the MCP shim server (auto-started by
-the mcp_shim_process fixture in conftest.py) — skipped automatically
-without Gemini credentials.
-"""
+"""Budget/Resource agent tests."""
 
 import uuid
 
@@ -12,6 +6,7 @@ import pytest
 from google.adk.runners import InMemoryRunner
 from google.genai import types
 
+from backlot.agents._state_instructions import CLICKHOUSE_TOOL_FILTER
 from backlot.agents.budget import build_budget_agent
 from backlot.agents.resource import build_resource_agent
 from backlot.config import get_settings
@@ -58,12 +53,18 @@ def _seed_breakdown_and_schedule() -> dict:
 
 
 def test_build_budget_agent_scopes_tools_to_cost_lookups():
+    """Tool scoping must hold in whichever MCP_MODE .env selects."""
     settings = get_settings()
     agent = build_budget_agent(settings)
     assert agent.name == "budget_agent"
     assert agent.output_key == "budget"
     toolset = agent.tools[0]
-    assert set(toolset.tool_filter) == {"get_comparable_costs", "get_vendor_rates"}
+    expected = (
+        set(CLICKHOUSE_TOOL_FILTER)
+        if settings.mcp_mode == "clickhouse"
+        else {"get_comparable_costs", "get_vendor_rates"}
+    )
+    assert set(toolset.tool_filter) == expected
 
 
 def test_build_resource_agent_scopes_tools_to_crew_and_locations():
@@ -72,7 +73,18 @@ def test_build_resource_agent_scopes_tools_to_crew_and_locations():
     assert agent.name == "resource_agent"
     assert agent.output_key == "resources"
     toolset = agent.tools[0]
-    assert set(toolset.tool_filter) == {"find_available_crew", "find_locations"}
+    expected = (
+        set(CLICKHOUSE_TOOL_FILTER)
+        if settings.mcp_mode == "clickhouse"
+        else {"find_available_crew", "find_locations"}
+    )
+    assert set(toolset.tool_filter) == expected
+
+
+def test_clickhouse_tool_filter_matches_official_mcp_clickhouse_tools():
+    """Pinned against github.com/ClickHouse/mcp-clickhouse's registered tool
+    names (verified in its mcp_server.py: `name="run_query"`)."""
+    assert set(CLICKHOUSE_TOOL_FILTER) == {"run_query", "list_tables"}
 
 
 def _has_llm_credentials() -> bool:

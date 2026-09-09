@@ -1,5 +1,5 @@
-"""Deployment artifact tests — construction/presence only, no network,
-no gcloud/adk CLI invocation, no Docker."""
+"""Deployment artifact tests — construction/presence only, no network, no
+gcloud/adk CLI invocation, no Docker."""
 
 from backlot.agents.approval_gate import auto_approve_decider
 from backlot.config import REPO_ROOT

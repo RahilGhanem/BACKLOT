@@ -1,12 +1,4 @@
-"""Previz tests.
-
-Schema, prompt-building, and agent/pipeline wiring tests always run (no
-network). The actual Imagen/Veo/Lyria calls cost real money and are never
-exercised just because Gemini credentials are present — they require an
-explicit second opt-in (RUN_PREVIZ_LIVE_TESTS=1) that nothing in this repo
-sets automatically, so a routine `pytest -v` can never trigger billed
-generative-media calls.
-"""
+"""Previz tests."""
 
 from __future__ import annotations
 
@@ -123,9 +115,9 @@ class _FakeOperation:
 
 
 class _FakeModels:
-    """Fakes the one call generate_animatic() makes; the operation is
-    already `done` so the poll loop's client.operations.get() is never
-    reached, keeping the fake client minimal."""
+    """Fakes the one call generate_animatic() makes; the operation is already
+    `done` so the poll loop's client.operations.get() is never reached,
+    keeping the fake client minimal."""
 
     def __init__(self, operation):
         self._operation = operation
@@ -163,8 +155,8 @@ class _FakeInteractions:
 
 class _FakeSequencedInteractions:
     """Returns a different image per call, recording every call's kwargs --
-    for generate_storyboards(), which calls create() once per requested
-    image (see its docstring: output_image is singular, not a list)."""
+    for generate_storyboards(), which calls create() once per requested image
+    (see its docstring: output_image is singular, not a list)."""
 
     def __init__(self, image_data_values: list):
         self._image_data_values = list(image_data_values)
@@ -191,13 +183,6 @@ class _FakeGenaiClient:
         self.models = models
         self.files = files
         self.interactions = interactions
-
-
-# ---------- generate_animatic: GCS-URI-to-local-mp4 fix ----------
-# These mock the google-genai Client entirely (via _build_client) so they
-# run offline, with no network/credentials/billing -- they verify the
-# *shape* of the fix (which client methods get called, what gets written to
-# disk), not a live Vertex Veo call, which only Vertex billing can confirm.
 
 
 @pytest.mark.asyncio
@@ -245,9 +230,6 @@ async def test_generate_animatic_writes_inline_bytes_directly_when_present(tmp_p
     assert (tmp_path / "animatic.mp4").read_bytes() == b"inline bytes"
 
 
-# ---------- generate_music_cue: response_modalities + output_audio fix ----------
-
-
 @pytest.mark.asyncio
 async def test_generate_music_cue_decodes_base64_audio_and_writes_mp3(tmp_path, monkeypatch):
     raw_bytes = b"fake mp3 bytes"
@@ -263,10 +245,6 @@ async def test_generate_music_cue_decodes_base64_audio_and_writes_mp3(tmp_path, 
 
     assert path == str(tmp_path / "temp_cue.mp3")
     assert (tmp_path / "temp_cue.mp3").read_bytes() == raw_bytes
-    # The two real bugs this fix corrects: response_modalities must be
-    # passed (verified valid value against responsemodality.py), and input
-    # must be the plain prompt string (verified valid against
-    # interactionsinput.py), not the old role/content list shape.
     assert capture["response_modalities"] == ["audio"]
     assert capture["input"] == "a prompt"
     assert capture["model"] == settings.lyria_model
@@ -277,18 +255,8 @@ async def test_generate_music_cue_returns_none_and_never_raises_when_no_audio(mo
     fake_client = _FakeGenaiClient(interactions=_FakeInteractions(_FakeInteraction(output_audio=None)))
     monkeypatch.setattr(previz_generation, "_build_client", lambda settings: fake_client)
 
-    # out_dir=None is fine here: this path never reaches out_dir.mkdir()
-    # since there's no audio to write -- if it did, this test would fail
-    # loudly with an AttributeError instead of silently passing.
     path = await previz_generation.generate_music_cue(get_settings(), "a prompt", None)
     assert path is None
-
-
-# ---------- generate_storyboards: Imagen -> gemini-2.5-flash-image migration ----------
-# Same offline-mocking approach as the Veo/Lyria tests above: no network,
-# no credentials, no billing. These verify the *shape* of the migration
-# (call args, response parsing, file output), not a live call, which only
-# Vertex billing can confirm.
 
 
 def test_generate_storyboards_writes_decoded_images_and_uses_image_modality(tmp_path, monkeypatch):
@@ -304,15 +272,11 @@ def test_generate_storyboards_writes_decoded_images_and_uses_image_modality(tmp_
 
     paths = previz_generation.generate_storyboards(settings, "a prompt", tmp_path, count=2)
 
-    # correct file/output generation
     assert paths == [str(tmp_path / "storyboard_1.png"), str(tmp_path / "storyboard_2.png")]
-    # correct base64 decoding + correct extraction of interaction.output_image.data
     assert (tmp_path / "storyboard_1.png").read_bytes() == raw_bytes_1
     assert (tmp_path / "storyboard_2.png").read_bytes() == raw_bytes_2
-    # one create() call per requested image (output_image is singular, not a list)
     assert len(fake_interactions.calls) == 2
     for call in fake_interactions.calls:
-        # correct response_modalities=["image"]
         assert call["response_modalities"] == ["image"]
         assert call["input"] == "a prompt"
         assert call["model"] == settings.imagen_model
@@ -329,8 +293,8 @@ def test_generate_storyboards_skips_images_with_no_output_image(tmp_path, monkey
 
 
 def test_generate_storyboards_propagates_api_failure_for_caller_to_handle(tmp_path, monkeypatch):
-    """API/model failure handling: an error from the model call must
-    propagate out of generate_storyboards() unhandled, exactly as the old
+    """API/model failure handling: an error from the model call must propagate
+    out of generate_storyboards() unhandled, exactly as the old
     generate_images() call would have -- previz.py's existing try/except
     around this call is what turns it into a warning; nothing here should
     swallow it first."""

@@ -1,9 +1,5 @@
 """The Budget Agent: costs grounded in the studio's own historical data and
-vendor rate cards. The studio's historical cost data lives in ClickHouse;
-this agent queries it via the real, official ClickHouse MCP server
-(mcp-clickhouse) in production, or mcp_shim locally for offline dev —
-selected by MCP_MODE (see config.py and _state_instructions.py's
-clickhouse_sql_rule)."""
+vendor rate cards."""
 
 from __future__ import annotations
 

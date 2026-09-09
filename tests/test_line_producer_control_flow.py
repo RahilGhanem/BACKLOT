@@ -1,12 +1,5 @@
 """Deterministic tests of the Line Producer's control flow: the bounded
-re-plan loop and the approval-gate skip of the Resource Agent.
-
-These use fake, non-LLM stand-ins for the LLM-backed steps (script
-supervisor, budget, risk, resource) so the loop/branching logic itself is
-covered without needing Gemini credentials or a running MCP server —
-Budget/Resource/Risk's *content* is covered separately by the live-gated
-tests in test_grounded_agents.py and test_line_producer.py.
-"""
+re-plan loop and the approval-gate skip of the Resource Agent."""
 
 from __future__ import annotations
 
@@ -33,8 +26,7 @@ from backlot.schemas import RiskReport
 
 
 class _FakeStateAgent(BaseAgent):
-    """Writes a fixed state_delta each call. Repeats the last value once
-    `values` is exhausted, so a single-entry list means "always this"."""
+    """Writes a fixed state_delta each call."""
 
     state_key: str
     values: list[dict]
@@ -66,12 +58,6 @@ def _night_scene(number: str, seq: int, pages: float) -> dict:
     }
 
 
-# One oversized scene (6.0 pages, always > any cap the shrink lever
-# produces below) keeps _has_overloaded_day() true every attempt so the
-# loop always has a lever to pull; the three smaller scenes re-group
-# differently as the cap shrinks from 5.0 -> 4.25 (one day of 3 -> a
-# 2-and-1 split), which changes the schedule's fingerprint between attempt
-# 0 and 1 so the loop doesn't hit the fixed-point break before the cap.
 _BREAKDOWN = {
     "title": "TEST",
     "total_estimated_pages": 10.5,
@@ -90,10 +76,6 @@ _BUDGET = {"title": "TEST", "currency": "USD", "total_estimated_cost": 1000.0, "
 _RISK_REPLAN = {
     "title": "TEST",
     "schedule_feasible": False,
-    # A real RiskReport can't have replan_requested=True with zero flags
-    # (see backlot/schemas/risk.py's validator) -- this fixture carries the
-    # same high-severity, justified flag every attempt so it forces a
-    # replan every time without being the exact contradiction Gap 3 outlaws.
     "flags": [
         {
             "category": "schedule_feasibility",
@@ -118,11 +100,7 @@ _RESOURCES = {"title": "TEST", "crew_picks": [], "location_picks": []}
 
 
 class _FailValidationThenSucceedAgent(BaseAgent):
-    """Reproduces ADK's own real failure mode -- a pydantic.ValidationError
-    raised from output-schema validation during event processing -- for its
-    first `fail_times` calls, then succeeds with `success_value`. Used to
-    test LineProducer._run_risk_agent_with_retry's corrective-retry loop
-    without needing a real, non-deterministic LLM call."""
+    """Raises pydantic.ValidationError from output-schema validation, as ADK does."""
 
     state_key: str
     fail_times: int
@@ -132,10 +110,6 @@ class _FailValidationThenSucceedAgent(BaseAgent):
     async def _run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None]:
         self.call_count += 1
         if self.call_count <= self.fail_times:
-            # Trigger a genuine pydantic.ValidationError the same way ADK's
-            # own validate_schema() does from a contradictory model
-            # response (schedule_feasible=False + replan_requested=True +
-            # zero flags), rather than hand-constructing one.
             RiskReport.model_validate(
                 {"title": "TEST", "schedule_feasible": False, "flags": [], "replan_requested": True}
             )
@@ -209,8 +183,6 @@ async def test_replan_loop_is_capped_and_shrinks_scheduler_budget():
 
     state = await _run(line_producer)
 
-    # risk always requests a replan, so the loop must run exactly
-    # max_replans + 1 times (capped), not forever.
     budget_agent = line_producer.sub_agents[2]
     assert budget_agent.call_count == MAX_REPLANS + 1
 
@@ -243,11 +215,7 @@ async def test_rejected_budget_skips_resource_agent():
 
 @pytest.mark.asyncio
 async def test_risk_validation_failure_triggers_a_bounded_retry_then_succeeds():
-    """A Risk Agent whose structured output fails schema validation twice
-    (the observed Gemini Flash failure mode: schedule_feasible=False /
-    replan_requested=True with zero flags) must be retried with corrective
-    guidance and the run must still complete -- not crash outright. See
-    LineProducer._run_risk_agent_with_retry."""
+    """Structured output that fails validation twice is retried, then succeeds."""
     risk_agent = _FailValidationThenSucceedAgent(
         name="risk_agent", state_key="risk_report", fail_times=2, success_value=_RISK_NO_REPLAN
     )
@@ -255,22 +223,17 @@ async def test_risk_validation_failure_triggers_a_bounded_retry_then_succeeds():
 
     state = await _run(line_producer)
 
-    # MAX_RISK_VALIDATION_RETRIES=2 -> fails twice, succeeds on the 3rd call.
     assert risk_agent.call_count == MAX_RISK_VALIDATION_RETRIES + 1
     assert state["package"]["risk_report"]["replan_requested"] is False
-    # The retry is scoped to the Risk Agent alone -- the outer re-plan loop
-    # (which re-runs Scheduler/Budget/Risk together) never had to fire;
-    # budget_agent was called exactly once.
     budget_agent = line_producer.sub_agents[2]
     assert budget_agent.call_count == 1
 
 
 @pytest.mark.asyncio
 async def test_risk_validation_failure_exhausts_retries_and_raises_clearly():
-    """If the Risk Agent never produces a valid RiskReport, the run must
-    fail with a clear, bounded error -- never hang, never silently
-    fabricate a flag or hardcode schedule_feasible/replan_requested just to
-    satisfy validation."""
+    """If the Risk Agent never produces a valid RiskReport, the run must fail
+    with a clear, bounded error -- never hang, never silently fabricate a flag
+    or hardcode schedule_feasible/replan_requested just to satisfy validation."""
     risk_agent = _FailValidationThenSucceedAgent(
         name="risk_agent", state_key="risk_report", fail_times=999, success_value=_RISK_NO_REPLAN
     )
@@ -279,5 +242,4 @@ async def test_risk_validation_failure_exhausts_retries_and_raises_clearly():
     with pytest.raises(RuntimeError, match="failed schema validation"):
         await _run(line_producer)
 
-    # Gives up after MAX_RISK_VALIDATION_RETRIES + 1 attempts, not more.
     assert risk_agent.call_count == MAX_RISK_VALIDATION_RETRIES + 1

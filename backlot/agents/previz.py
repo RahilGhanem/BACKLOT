@@ -1,12 +1,5 @@
 """The Previz Agent: generates a storyboard, a short animatic, and a
-best-effort temp music cue for the opening scene, straight from the
-breakdown. Deterministic scene selection and prompt-building — no LLM
-call needed to describe data that's already structured — then hands off
-to Imagen/Veo/Lyria via backlot/tools/previz_generation.py.
-
-Opt-in (Phase 6, "optional/last"): real money, and a Veo clip can take
-minutes. See build_line_producer(include_previz=True).
-"""
+best-effort temp music cue for the opening scene, straight from the breakdown."""
 
 from __future__ import annotations
 

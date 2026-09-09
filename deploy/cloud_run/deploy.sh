@@ -4,18 +4,15 @@
 # deployment that keeps the full human-in-the-loop approval flow (see
 # docs/DEPLOYMENT.md).
 #
-# Flags below verified against the installed `adk`/`gcloud` CLIs where
-# available in this environment: `adk deploy cloud_run --help` was checked
-# directly (this script deliberately does NOT use that command — see
-# docs/DEPLOYMENT.md's "why both exist" table — it deploys the whole custom
-# FastAPI app via plain `gcloud run deploy`, not just the bare ADK agent).
-# `gcloud` itself was not installed in the environment this was verified
-# in, so the `gcloud run deploy` flags below are a careful manual audit
-# against gcloud's documented, long-stable surface, not a literal --help
-# run — re-run `gcloud run deploy --help` yourself before a live deploy.
-# Both Dockerfile and Dockerfile.mcp_shim were build- and run-tested
-# locally (confirmed each listens on whatever $PORT is injected, matching
-# Cloud Run's contract) — see docs/DEPLOYMENT.md.
+# This is the deployment to demo: it serves the whole FastAPI application,
+# so the human-in-the-loop approval flow is preserved end to end. (The
+# Agent Engine script deploys the bare crew instead and auto-approves --
+# see docs/DEPLOYMENT.md for why both exist.)
+#
+# This script has not been run against a live GCP project. The Dockerfile
+# is build- and run-tested locally and honours the injected $PORT as Cloud
+# Run requires; confirm `gcloud run deploy --help` against your CLI version
+# before the first deploy.
 set -euo pipefail
 
 : "${PROJECT_ID:?Set PROJECT_ID to your GCP project id}"
@@ -27,7 +24,7 @@ SERVICE_NAME="${SERVICE_NAME:-backlot}"
 MCP_MODE="${MCP_MODE:-shim}"
 
 if [ "$MCP_MODE" = "shim" ]; then
-  : "${MCP_SERVER_URL:?MCP_MODE=shim requires MCP_SERVER_URL — a deployed mcp_shim's public URL + /mcp (see deploy_mcp_shim.sh)}"
+  : "${MCP_SERVER_URL:?MCP_MODE=shim requires MCP_SERVER_URL — the public URL of a deployed mcp_shim, plus /mcp (see deploy_mcp_shim.sh)}"
   ENV_VARS="GOOGLE_GENAI_USE_ENTERPRISE=TRUE,GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GOOGLE_CLOUD_LOCATION=${REGION},BACKLOT_APP_NAME=backlot,MCP_MODE=shim,MCP_SERVER_URL=${MCP_SERVER_URL}"
   # One-time setup, if you haven't already:
   #   gcloud secrets create mcp-auth-token --project="$PROJECT_ID"
@@ -35,7 +32,7 @@ if [ "$MCP_MODE" = "shim" ]; then
   #     gcloud secrets versions add mcp-auth-token --project="$PROJECT_ID" --data-file=-
   SECRETS="MCP_AUTH_TOKEN=mcp-auth-token:latest"
 else
-  : "${CLICKHOUSE_MCP_URL:?MCP_MODE=clickhouse requires CLICKHOUSE_MCP_URL — your mcp-clickhouse server's streamable-http URL (see deploy_mcp_shim.sh-style deployment, or a managed one)}"
+  : "${CLICKHOUSE_MCP_URL:?MCP_MODE=clickhouse requires CLICKHOUSE_MCP_URL — the streamable-http URL of your mcp-clickhouse server (see deploy_mcp_shim.sh-style deployment, or a managed one)}"
   CLICKHOUSE_DATABASE="${CLICKHOUSE_DATABASE:-backlot_studio}"
   ENV_VARS="GOOGLE_GENAI_USE_ENTERPRISE=TRUE,GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GOOGLE_CLOUD_LOCATION=${REGION},BACKLOT_APP_NAME=backlot,MCP_MODE=clickhouse,CLICKHOUSE_MCP_URL=${CLICKHOUSE_MCP_URL},CLICKHOUSE_DATABASE=${CLICKHOUSE_DATABASE}"
   # One-time setup, if you haven't already — the mcp-clickhouse server's

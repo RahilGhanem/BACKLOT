@@ -1,5 +1,5 @@
-"""Metrics computation tests — built from hand-constructed Event objects,
-no network, no live model calls."""
+"""Metrics computation tests — built from hand-constructed Event objects, no
+network, no live model calls."""
 
 from google.adk.events import Event
 from google.genai import types

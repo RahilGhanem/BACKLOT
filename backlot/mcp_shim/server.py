@@ -1,20 +1,5 @@
 """BACKLOT's local, synthetic stand-in for the real ClickHouse MCP server
-(github.com/ClickHouse/mcp-clickhouse). Exposes a similar tool interface so
-agents' *rules* (grounding, provenance, no-invented-numbers) never need to
-change when MCP_MODE is repointed at a real ClickHouse cluster in
-production — only the tool names/instructions differ per mode (see
-budget.py/resource.py's per-mode instructions, .env.example, and README's
-"Data note").
-
-Run standalone:
-    python -m backlot.mcp_shim.server
-
-Note MCP_SHIM_HOST/MCP_SHIM_PORT (what this process binds to) are separate
-settings from MCP_SERVER_URL (what clients connect to) — see config.py.
-Locally they describe the same address by default; in a cloud deployment
-this process binds 0.0.0.0:$PORT while MCP_SERVER_URL, set on whatever
-connects to it, is this service's public HTTPS URL instead.
-"""
+(github.com/ClickHouse/mcp-clickhouse)."""
 
 from __future__ import annotations
 
@@ -47,10 +32,7 @@ mcp = FastMCP(
 @mcp.tool()
 def get_comparable_costs(scene_profile: str) -> dict:
     """Look up historical per-day production costs for scenes resembling
-    `scene_profile` (e.g. 'EXT_NIGHT_INDUSTRIAL', 'INT_DAY_STANDARD').
-    Uses fuzzy token matching against the studio's cost history, not an
-    exact key lookup — pass your best description of the scene's setting.
-    """
+    `scene_profile` (e.g."""
     dataset = load_dataset()["historical_costs"]
     matches = best_matches(scene_profile, dataset["records"], key="scene_profile")
     return {
@@ -62,10 +44,7 @@ def get_comparable_costs(scene_profile: str) -> dict:
 
 @mcp.tool()
 def get_vendor_rates(category: str, region: str | None = None) -> dict:
-    """Look up current per-day vendor rate cards by category (e.g.
-    'grip_and_electric', 'picture_vehicle', 'rain_effects'), fuzzy-matched,
-    optionally filtered to a region (e.g. 'US-West').
-    """
+    """Look up current per-day vendor rate cards by category (e.g."""
     dataset = load_dataset()["vendor_rates"]
     matches = [record for record, _score in best_matches(category, dataset["records"], key="category")]
     if region:
@@ -84,11 +63,7 @@ def get_vendor_rates(category: str, region: str | None = None) -> dict:
 def find_available_crew(
     role: str, start_date: str | None = None, end_date: str | None = None
 ) -> dict:
-    """Find crew members whose role fuzzy-matches `role` (e.g. 'Gaffer',
-    'Key Grip', '1st AD') and who are available across
-    [start_date, end_date] (ISO 'YYYY-MM-DD'; omit both to skip date
-    filtering).
-    """
+    """Find crew members whose role fuzzy-matches `role` (e.g."""
     dataset = load_dataset()["crew_library"]
     matches = [
         record
@@ -108,10 +83,7 @@ def find_available_crew(
 
 @mcp.tool()
 def find_locations(location_type: str, region: str | None = None) -> dict:
-    """Find studio locations whose type fuzzy-matches `location_type` (e.g.
-    'industrial lot', 'warehouse dock', 'highway'), optionally filtered to
-    a region (e.g. 'US-East').
-    """
+    """Find studio locations whose type fuzzy-matches `location_type` (e.g."""
     dataset = load_dataset()["location_library"]
     matches = [record for record, _score in best_matches(location_type, dataset["records"], key="type")]
     if region:
@@ -129,9 +101,7 @@ def find_locations(location_type: str, region: str | None = None) -> dict:
 @mcp.tool()
 def get_past_schedule_patterns(genre: str, scale: str | None = None) -> dict:
     """Look up historical scheduling priors (avg pages/day, avg shoot days)
-    for a genre (e.g. 'heist thriller', 'drama'), fuzzy-matched, optionally
-    filtered to a production scale ('short_film' or 'feature').
-    """
+    for a genre (e.g."""
     dataset = load_dataset()["past_schedules"]
     matches = [record for record, _score in best_matches(genre, dataset["records"], key="genre")]
     if scale:

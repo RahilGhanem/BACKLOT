@@ -1,11 +1,4 @@
-"""The 1st-AD Scheduler: a deterministic, non-LLM agent.
-
-Building the shoot schedule is a constraint-packing problem, not a language
-problem, so this agent never calls a model -- it reads the breakdown out of
-shared session state, runs the scheduling solver tool, and writes the
-schedule back to state. This is the "deterministic critical path" the
-architecture calls for.
-"""
+"""The 1st-AD Scheduler: a deterministic, non-LLM agent."""
 
 from __future__ import annotations
 

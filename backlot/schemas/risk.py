@@ -1,26 +1,34 @@
-"""The Risk/Continuity Agent's output contract.
-
-This is one of only two agents in the crew doing open-ended reasoning
-(the other is the Script Supervisor) — everything else is either
-deterministic or a grounded, tool-scoped lookup.
-"""
+"""The Risk/Continuity Agent's output contract."""
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+
+def _require_every_property(schema: dict) -> None:
+    """Mark every property as required in the transmitted JSON schema."""
+    schema["required"] = list(schema.get("properties", {}).keys())
+
+
+_SHORT_TEXT = 400
+_LONG_TEXT = 600
 
 
 class RiskFlag(BaseModel):
-    category: str = Field(description="e.g. 'weather', 'permit', 'overtime', 'continuity', 'schedule_feasibility'.")
-    severity: str = Field(description="'low', 'medium', or 'high'.")
-    description: str
+    model_config = ConfigDict(json_schema_extra=_require_every_property)
+
+    category: str = Field(max_length=60, description="e.g. 'weather', 'permit', 'overtime', 'continuity', 'schedule_feasibility'.")
+    severity: str = Field(max_length=10, description="'low', 'medium', or 'high'.")
+    description: str = Field(max_length=_SHORT_TEXT)
     affected_scene_numbers: list[str] = Field(default_factory=list)
     affected_shoot_days: list[int] = Field(default_factory=list)
-    recommendation: str = ""
+    recommendation: str = Field(default="", max_length=_SHORT_TEXT)
 
 
 class RiskReport(BaseModel):
-    title: str
+    model_config = ConfigDict(json_schema_extra=_require_every_property)
+
+    title: str = Field(max_length=200)
     schedule_feasible: bool = Field(
         description="False if the schedule should be re-planned before proceeding."
     )
@@ -29,16 +37,11 @@ class RiskReport(BaseModel):
         default=False,
         description="True asks the Line Producer to re-run the Scheduler with tightened constraints.",
     )
-    replan_reason: str = ""
+    replan_reason: str = Field(default="", max_length=_LONG_TEXT)
 
     @model_validator(mode="after")
     def _replan_or_infeasible_must_be_justified(self) -> "RiskReport":
-        """Structurally rules out the exact contradiction this schema used to
-        allow: schedule_feasible=False and/or replan_requested=True with
-        zero supporting flags (see backlot/agents/risk.py's INSTRUCTION,
-        which tells the model these rules exist so a well-behaved model
-        should never actually trip this).
-        """
+        """Reject self-contradictory reports."""
         if (self.replan_requested or not self.schedule_feasible) and not self.flags:
             raise ValueError(
                 "schedule_feasible=False or replan_requested=True requires at "
