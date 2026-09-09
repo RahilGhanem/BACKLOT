@@ -1,335 +1,651 @@
 # BACKLOT
 
-An autonomous pre-production crew for film.
+### An agentic pre-production crew for film.
 
-BACKLOT takes a screenplay and returns a production package: a scene
-breakdown, a shooting schedule, a costed budget, a risk report, crew and
-location picks, and the producer's approval decision. Seven specialised
-agents do the work, coordinated by a Line Producer that holds shared state
-and enforces the order they run in.
+**BACKLOT** turns a screenplay into a structured production plan through a coordinated team of specialized AI agents.
 
-The budget and resource agents don't estimate from the model's priors. They
-query the studio's own cost history in ClickHouse through the official MCP
-server, and every figure they return carries the row it came from. Values
-they couldn't match to a record are marked ungrounded rather than filled in.
+Instead of asking a single model to generate a complete production plan, BACKLOT separates the workflow into production roles: screenplay breakdown, scheduling, budgeting, risk analysis, human approval, resource selection, and final package assembly.
+
+The result is a **traceable, reviewable production workflow** where agents can challenge earlier decisions, re-plan when necessary, and ground production costs and resources in structured studio data.
+
+> **Live Demo:** [backlot-t4u7.onrender.com](https://backlot-t4u7.onrender.com)
 
 ---
 
-## Why BACKLOT
+## Why BACKLOT?
 
-Pre-production decides a film's schedule and budget, and it's the cheapest
-place to catch a mistake. A 1st AD packs scenes into shoot days. A line
-producer costs those days against what comparable productions actually
-spent. Somebody has to notice that four consecutive night exteriors will
-exhaust the crew before the schedule gets locked.
+Pre-production is where creative decisions become operational constraints.
 
-Tools exist for each of those jobs individually. What doesn't exist is a
-system that runs the whole sequence, checks its own output, and costs the
-plan against the studio's real numbers instead of a plausible guess.
+A screenplay has to become:
 
-## The production spine
+* scenes that can actually be scheduled
+* shoot days that respect production constraints
+* a budget grounded in available data
+* a plan that survives risk and continuity review
+* resources that match the approved production scope
 
+Traditional software usually handles these tasks separately.
+
+BACKLOT connects them into a single **agentic production workflow**.
+
+The system doesn't simply generate a plan and stop. It can:
+
+1. Break down the screenplay.
+2. Build a deterministic shooting schedule.
+3. Cost the resulting production plan.
+4. Critically review the schedule and budget.
+5. Trigger a bounded re-plan when the plan is infeasible.
+6. Stop at a human approval gate.
+7. Select crew and locations after approval.
+8. Assemble the final production package.
+
+---
+
+## The Production Spine
+
+```text
+                         SCREENPLAY
+                              │
+                              ▼
+                     SCRIPT BREAKDOWN
+                              │
+                              ▼
+                         SCHEDULE ◀──────────┐
+                              │              │
+                              ▼              │
+                          BUDGET             │  bounded
+                              │              │  re-plan
+                              ▼              │
+                            RISK ────────────┘
+                              │
+                              ▼
+                     HUMAN APPROVAL
+                              │
+                              ▼
+                         RESOURCES
+                              │
+                              ▼
+                  PRODUCTION PACKAGE
 ```
-                SCREENPLAY
-                    │
-             SCRIPT BREAKDOWN
-                    │
-                 SCHEDULE ◀────────────┐
-                    │                  │
-                  BUDGET ──────────┐   │  bounded
-                    │              │   │  re-plan
-                   RISK ───────────┴───┘  (max 2)
-                    │
-             HUMAN APPROVAL          ← execution stops here
-                    │
-                RESOURCES
-                    │
-            PRODUCTION PACKAGE
-```
 
-Budget and Resources are the two grounded steps. Both read the studio
-dataset in ClickHouse over MCP and carry the source record forward with the
-value.
+The planning loop is intentionally **bounded**. Risk can send the plan back through scheduling, budgeting, and review, but the orchestrator prevents uncontrolled iteration.
 
-## Design notes
+---
 
-Four things distinguish this from a linear agent chain:
+## What Makes BACKLOT Agentic?
 
-**Adversarial review.** The Risk agent reads the Scheduler's and Budget
-agent's output and can reject the plan. It isn't a summariser at the end of
-the pipeline; its verdict changes what happens next.
+BACKLOT is designed as a coordinated production crew rather than a single LLM prompt.
 
-**A real second planning pass.** A rejection returns the plan to the
-Scheduler with a widened pages-per-day target, then re-costs and re-reviews
-it. The loop is capped and the constraint change is deterministic.
+### Specialized roles
 
-**A blocking human decision.** The Resource agent proposes actual crew and
-locations, so it doesn't run until a producer approves the budget band.
-Rejection ends the run with `resources: null`.
+Each agent has a focused responsibility and produces a structured artifact for the next stage.
 
-**Traceable numbers.** Grounded values carry a `source_records` entry naming
-the table and row behind them, and the UI walks that back from a decision to
-the agent, the tool, the dataset and the record.
+### Shared state
+
+The Line Producer orchestrates the workflow and maintains the state connecting the different production stages.
+
+### Adversarial review
+
+The Risk / Continuity agent evaluates the schedule and budget instead of simply summarizing them.
+
+A plan can be rejected when production constraints make it infeasible.
+
+### Autonomous re-planning
+
+When Risk requests a re-plan, the Line Producer sends the workflow back through the relevant planning stages with a deterministic constraint adjustment.
+
+The loop is bounded and includes a fixed-point check so the system does not repeatedly produce the same plan.
+
+### Human control
+
+The system does not silently commit the production plan.
+
+A producer must approve the budget before the Resource Agent proceeds with crew and location recommendations.
+
+### Grounded decisions
+
+Where structured studio data is available, budget and resource decisions carry provenance back to their underlying records.
+
+When a value cannot be grounded, BACKLOT explicitly marks it as **ungrounded** instead of fabricating supporting evidence.
+
+---
 
 ## Architecture
 
+```text
+                    ┌──────────────────────┐
+                    │      Producer        │
+                    │       Web UI         │
+                    └──────────┬───────────┘
+                               │
+                               ▼
+                    ┌──────────────────────┐
+                    │       FastAPI        │
+                    │     Web Backend      │
+                    └──────────┬───────────┘
+                               │
+                               ▼
+                    ┌──────────────────────┐
+                    │    Line Producer     │
+                    │    Orchestrator      │
+                    └──────────┬───────────┘
+                               │
+   ┌───────────────┬───────────┼───────────────┬───────────────┐
+   ▼               ▼           ▼               ▼               ▼
+Script         1st-AD       Budget          Risk /          Package
+Supervisor     Scheduler    Agent           Continuity      Assembler
+                               │               │
+                               ▼               ▼
+                          MCP server      Approval Gate
+                               │               │
+                               ▼               ▼
+                         ClickHouse       Resource Agent
+                      or local dataset         │
+                               ▲               │
+                               └───────────────┘
 ```
- Producer (web UI)
-   │  uploads screenplay · approves the budget band
-   ▼
- FastAPI + web UI          backlot/api/
-   ▼
- Line Producer             backlot/orchestrator/line_producer.py
-   ├─ Script Supervisor    screenplay → structured breakdown
-   ├─ 1st-AD Scheduler     breakdown → stripboard (deterministic solver)
-   ├─ Budget Agent         grounded via ClickHouse MCP
-   ├─ Risk / Continuity    critiques schedule + budget, may force a re-plan
-   ├─ Approval Gate        producer decision, blocks the pipeline
-   ├─ Resource Agent       grounded via ClickHouse MCP
-   └─ Package Assembler    assembles the final package
-   ▼
- mcp-clickhouse (official MCP server) ──▶ ClickHouse
+
+The orchestrator is intentionally not a simple sequential chain. It controls conditional execution, bounded re-planning, human approval, and optional production extensions.
+
+Agents exchange **compact structured artifacts** rather than passing entire conversation transcripts between every stage.
+
+---
+
+## The Agents
+
+| Agent | Responsibility |
+| --- | --- |
+| **Script Supervisor** | Converts the screenplay into structured scene information including sluglines, locations, time of day, cast, props, vehicles, VFX, stunts, and page information. |
+| **1st-AD Scheduler** | Converts the breakdown into a shooting schedule using deterministic scheduling logic. |
+| **Budget Agent** | Produces a costed production plan using available structured cost data. |
+| **Risk / Continuity Agent** | Reviews the schedule and budget for feasibility, continuity, weather, permits, overtime, and other production risks. |
+| **Approval Gate** | Pauses execution and waits for a producer decision. |
+| **Resource Agent** | Recommends crew and locations using available structured studio data. |
+| **Package Assembler** | Combines the outputs into the final production package. |
+
+### Deterministic scheduling
+
+Scheduling is deliberately separated from generative reasoning.
+
+The scheduler uses deterministic logic to transform the structured breakdown into a repeatable shooting plan. This makes it possible to compare planning passes and reliably detect whether a re-plan actually changed the schedule.
+
+---
+
+## Grounded Studio Data
+
+BACKLOT grounds production decisions in structured studio data through the **Model Context Protocol (MCP)**.
+
+The project includes a synthetic studio dataset representing:
+
+| Dataset | Purpose |
+| --- | --- |
+| `historical_costs` | Historical production cost information |
+| `vendor_rates` | Vendor and production equipment rates |
+| `crew_library` | Crew information and rates |
+| `location_library` | Location information and production constraints |
+| `past_schedules` | Historical scheduling information |
+
+The same dataset is served two ways:
+
+* **`MCP_MODE=clickhouse`** — the dataset is loaded into ClickHouse by `scripts/clickhouse_load.sql`, and the Budget and Resource agents issue real SQL against it through the official [`mcp-clickhouse`](https://github.com/ClickHouse/mcp-clickhouse) server. Provenance reads `clickhouse:backlot_studio.<table>`.
+* **`MCP_MODE=shim`** — a bundled MCP server answers from the same JSON files, so the project runs with no external infrastructure. Provenance reads `mcp_shim:<file>`.
+
+The UI reports whichever store actually produced the records, so the grounding label always reflects the run rather than the configuration.
+
+### MCP tool scoping
+
+Agents do not receive unrestricted access to the MCP server.
+
+The data agents are scoped to exactly the tools required for their job:
+
+```text
+run_query
+list_tables
 ```
 
-Agents hand each other compact JSON artifacts rather than transcripts. Only
-the Script Supervisor ever sees the full screenplay, which keeps the token
-cost of a run roughly flat as the script gets longer.
+The Budget Agent and the Resource Agent each receive their own scoped toolset, so neither can reach beyond its remit.
 
-The Line Producer is a custom ADK `BaseAgent` rather than a
-`SequentialAgent`, because the control flow isn't linear: it needs a capped
-retry loop around Scheduler/Budget/Risk, a conditional skip of the Resource
-agent when a budget is rejected, and an optional previz step.
+---
 
-## The agents
+## Provenance and Grounding
 
-| Agent | Role | Grounded |
-|---|---|---|
-| **Script Supervisor** | Parses the screenplay into scenes: slugline, INT/EXT, time of day, cast, props, vehicles, VFX, stunts, page count | — |
-| **1st-AD Scheduler** | Packs scenes into shoot days by location and continuity. A solver, not a model | — |
-| **Budget Agent** | Costs each shoot day and vendor line against historical studio data | ClickHouse |
-| **Risk / Continuity** | Reviews the plan for weather, permit, overtime, continuity and feasibility problems; can demand a re-plan | — |
-| **Approval Gate** | Presents the costed budget to a human and waits | — |
-| **Resource Agent** | Proposes crew and locations from the studio libraries | ClickHouse |
-| **Package Assembler** | Combines every artifact into the deliverable | — |
+Grounding is treated as a first-class part of the production package.
 
-Scheduling is deterministic on purpose. The same breakdown always produces
-the same stripboard, which is what lets the re-plan loop detect that a
-second pass changed nothing and stop early.
-
-## Grounded studio data
-
-The Budget and Resource agents issue SQL against the studio's tables through
-the official [mcp-clickhouse](https://github.com/ClickHouse/mcp-clickhouse)
-server:
-
-| Table | Contents |
-|---|---|
-| `historical_costs` | Day rates by scene profile from comparable productions |
-| `vendor_rates` | Camera, grip/electric, catering, picture vehicles, FX, security |
-| `crew_library` | Crew with day rate, union, region and availability |
-| `location_library` | Locations with permit cost, night-shoot support, power access |
-| `past_schedules` | Realised pages/day from previous productions |
-
-Each agent is scoped to two tools, `run_query` and `list_tables`, through a
-`tool_filter`. Neither can reach anything else on the server.
-
-A grounded value looks like this in the package:
+A data-backed value carries the record behind it:
 
 ```json
 {
   "label": "Shoot Day 1: EXT. INDUSTRIAL LOT - NIGHT (Scene 1)",
   "amount": 38500.0,
   "grounded": true,
-  "source_records": [{
-    "record_id": "EXT_NIGHT_INDUSTRIAL",
-    "summary": "Historical average cost of $38,500/day based on 6 comparable productions.",
-    "source": "clickhouse:backlot_studio.historical_costs"
-  }]
+  "source_records": [
+    {
+      "record_id": "EXT_NIGHT_INDUSTRIAL",
+      "summary": "Historical average cost of $38,500/day based on 6 comparable productions.",
+      "source": "clickhouse:backlot_studio.historical_costs"
+    }
+  ]
 }
 ```
 
-When no row matches, `grounded` is `false` and `source_records` is empty.
-The UI lists those separately instead of burying them.
+The important distinction is between:
 
-## Human-in-the-loop
+**Grounded** — the system can associate the value with a supporting record.
 
-The Approval Gate sits between costing and commitment. Everything before it
-is analysis; the Resource agent after it proposes real crew and locations,
-so a producer approves the budget band first.
+**Ungrounded** — no supporting record was found.
 
-The gate takes an injectable decider. On the CLI it blocks on stdin; in the
-web UI it blocks until an HTTP approve or reject arrives. The orchestrator
-doesn't know or care which.
+Ungrounded values are not silently presented as verified studio data. The UI lists them explicitly so a producer can see exactly which figures still need confirming.
+
+---
+
+## Human-in-the-Loop
+
+BACKLOT deliberately keeps the producer in control of the commitment point.
+
+The workflow performs analysis first:
+
+```text
+Breakdown
+    ↓
+Schedule
+    ↓
+Budget
+    ↓
+Risk
+    ↓
+┌─────────────────────┐
+│   PRODUCER APPROVAL │
+└─────────────────────┘
+    ↓
+Resources
+    ↓
+Production Package
+```
+
+The Resource Agent does not proceed until the approval stage has been resolved. Rejecting the budget ends the run with no resource recommendations rather than continuing anyway.
+
+The approval mechanism is implemented as an injectable decision point, allowing the same orchestration logic to operate through different interfaces: the CLI blocks on standard input, and the web UI blocks until an HTTP approve or reject arrives.
+
+---
 
 ## Re-planning
 
-If the Risk agent judges a schedule infeasible it sets `replan_requested`,
-and the schema requires it to justify that with a high-severity flag
-carrying both a description and a recommendation. An unjustified re-plan
-request fails validation.
+Risk analysis is an active part of the workflow.
 
-The Line Producer then re-runs Scheduler → Budget → Risk with a widened
-pages-per-day target. Three things bound the loop: a cap of two re-plans, a
-deterministic constraint change on each pass, and a fixed-point check that
-stops early if the new schedule matches the previous one.
+When the Risk agent determines that the production plan is infeasible, it can request a re-plan with a structured justification.
 
-## The production package
+A valid re-plan request must be supported by a sufficiently severe risk finding containing both:
 
-A run produces one JSON document: breakdown, schedule, budget with per-line
-provenance, risk report, approval decision, resource picks, and previz if it
-was enabled. You can download it from the UI and reopen it later to review a
-run without executing the crew again.
+* a description of the problem
+* a recommended corrective action
 
-The web UI presents this as a control room. A live pipeline shows each agent
-station and the value it produced, with the re-plan drawn as an actual loop
-back to the Scheduler when one happens. Below that: a stripboard in the
-standard 1st-AD colour convention, a shooting board, budget composition, a
-risk map linked to the scenes and days each flag affects, and a grounding
-ledger naming every claim that couldn't be grounded.
+An unjustified re-plan request fails schema validation.
 
-## Screenshots and demo
+The Line Producer then re-runs the relevant planning stages. The loop is protected by multiple constraints:
 
-_Demo video: (add link)_
+* a maximum number of re-planning passes
+* deterministic constraint changes on each pass
+* validation of re-plan requests
+* fixed-point detection to stop when a new pass produces the same schedule
 
-_Hosted instance: (add link)_
+This prevents an uncontrolled agent loop while still allowing the system to respond to its own analysis.
+
+---
+
+## The Production Package
+
+A completed run produces a structured production package containing the outputs of the workflow:
+
+* screenplay breakdown
+* shooting schedule
+* budget
+* budget provenance
+* risk report
+* approval decision
+* crew recommendations
+* location recommendations
+* optional previz outputs
+
+The web interface presents these artifacts as a production control room rather than a generic chat interface.
+
+The interface exposes:
+
+* agent pipeline state, with the re-plan drawn as an actual loop back to the Scheduler when one occurs
+* schedule and shooting board
+* budget composition
+* risk information linked to the scenes and days each finding affects
+* grounding information, including every claim that could not be grounded
+* approval state
+* production resources
+* final package output
+
+Completed runs can be downloaded and reopened later for review without executing the entire workflow again.
+
+---
+
+## Live Demo
+
+**Try BACKLOT:** [backlot-t4u7.onrender.com](https://backlot-t4u7.onrender.com)
+
+The live application demonstrates the complete production workflow through a browser-based control room.
+
+The intended flow is:
+
+```text
+Open BACKLOT
+      ↓
+Provide a screenplay
+      ↓
+Run the production crew
+      ↓
+Review breakdown
+      ↓
+Review schedule
+      ↓
+Review budget
+      ↓
+Review risk analysis
+      ↓
+Observe re-planning when required
+      ↓
+Approve / reject
+      ↓
+Review resources
+      ↓
+Inspect production package
+```
+
+The hosted instance runs in `MCP_MODE=shim`, so the demo is self-contained and needs no external database. The ClickHouse integration is exercised locally and by the integration test suite described under [Testing](#testing).
+
+---
 
 ## Technology
 
-- **Gemini** via the **Google Agent Development Kit** (ADK 2.5.0)
-- **Model Context Protocol**, using `mcp-clickhouse` 0.6.0
-- **ClickHouse** for the studio dataset
-- **FastAPI** for the backend and static hosting
-- Plain HTML, CSS and JavaScript on the frontend. No framework, no build step
-- **Cloud Run** as the container target (`Dockerfile` at the repo root)
+BACKLOT is built around an agentic backend with a lightweight web interface.
 
-## Local development
+### AI & orchestration
 
-Requires Python 3.11+.
+* **Gemini**
+* **Google Agent Development Kit (ADK)**
+* Custom ADK agent orchestration
+* Structured agent artifacts
+
+### Data & integration
+
+* **Model Context Protocol (MCP)**
+* **mcp-clickhouse**
+* **ClickHouse**
+* Synthetic studio dataset for development and demonstration
+
+### Backend
+
+* **Python**
+* **FastAPI**
+* **Uvicorn**
+
+### Frontend
+
+* HTML
+* CSS
+* JavaScript
+* No frontend framework
+* No frontend build step
+
+### Deployment
+
+* Docker
+* Render for the current live deployment
+* Google Cloud deployment configuration is also included in the repository
+
+---
+
+## Local Development
+
+BACKLOT requires **Python 3.11+**.
+
+### 1. Create a virtual environment
 
 ```bash
 python -m venv .venv
-source .venv/Scripts/activate      # Windows (Git Bash)
-source .venv/bin/activate          # macOS/Linux
+```
+
+### 2. Activate it
+
+**Windows / Git Bash:**
+
+```bash
+source .venv/Scripts/activate
+```
+
+**macOS / Linux:**
+
+```bash
+source .venv/bin/activate
+```
+
+### 3. Install dependencies
+
+```bash
 pip install -r requirements.txt
+```
+
+### 4. Configure environment variables
+
+```bash
 cp .env.example .env
 ```
 
-Set one model credential in `.env`:
-
-- `GOOGLE_API_KEY` for AI Studio, which is quickest for local work, or
-- `GOOGLE_GENAI_USE_ENTERPRISE=TRUE` plus `GOOGLE_CLOUD_PROJECT` for Vertex
-  AI, which is what the Cloud Run deployment uses. Needs
-  `gcloud auth application-default login` or a service account.
+Configure the Gemini credentials in `.env`: either `GOOGLE_API_KEY` for AI Studio, or `GOOGLE_GENAI_USE_ENTERPRISE=TRUE` plus `GOOGLE_CLOUD_PROJECT` for Vertex AI.
 
 `backlot/config.py` is the only module that reads environment variables.
 
-### Running against ClickHouse
+**Never commit API keys or other secrets to the repository.**
 
-`mcp-clickhouse` requires `mcp` 2.x, and this application pins `mcp` 1.29.0
-for ADK. They cannot share a virtual environment, so the MCP server runs as
-its own process:
+---
+
+## Running with the MCP Shim
+
+For development without an external ClickHouse cluster, BACKLOT provides a local MCP server backed by the included synthetic dataset.
+
+Start it with:
+
+```bash
+python -m backlot.mcp_shim.server
+```
+
+Then start the application using the normal local server or CLI entry point.
+
+This mode is useful for development, testing, and environments where an external ClickHouse service is not available.
+
+---
+
+## Running with ClickHouse
+
+`mcp-clickhouse` requires `mcp` 2.x while this application pins `mcp` 1.29.0 for ADK, so the MCP server runs as its own process in its own environment:
 
 ```bash
 python -m venv .mcp-clickhouse-venv
 .mcp-clickhouse-venv/Scripts/python.exe -m pip install mcp-clickhouse==0.6.0
 ```
 
-Load the dataset into your cluster, either from the ClickHouse Cloud SQL
-console or with `clickhouse-client --multiquery < scripts/clickhouse_load.sql`.
-It creates `backlot_studio` and mirrors `data/studio_dataset/*.json`: 6
-`historical_costs`, 12 `vendor_rates`, 10 `crew_library`, 6
-`location_library`, 5 `past_schedules`.
-
-Fill in the `CLICKHOUSE_*` block in `.env`, then start the MCP server in its
-own terminal:
-
-```powershell
-.\scripts\start_mcp_clickhouse.ps1
-```
-
-Set `MCP_MODE=clickhouse` and `CLICKHOUSE_MCP_URL=http://127.0.0.1:8766/mcp`,
-then run the crew:
+Load the dataset into your cluster, either from the ClickHouse Cloud SQL console or with:
 
 ```bash
-python run_local.py --auto-approve      # CLI
-python run_server.py                    # web UI at http://127.0.0.1:8000
+clickhouse-client --multiquery < scripts/clickhouse_load.sql
 ```
 
-`run_local.py` also takes `--screenplay`, `--out`, `--stage breakdown` (the
-Script Supervisor alone, no MCP server needed) and `--with-previz`.
+It creates `backlot_studio` and mirrors `data/studio_dataset/*.json`. The script is safe to re-run: each table is truncated before it is loaded.
 
-### Without a ClickHouse cluster
+Fill in the `CLICKHOUSE_*` block in `.env`, start the MCP server, then run BACKLOT with:
 
-`MCP_MODE=shim` runs a local MCP server carrying the same synthetic dataset
-(`python -m backlot.mcp_shim.server`), so the repository works with no
-external services. It's there for offline development. The ClickHouse path
-above is the real integration.
+```text
+MCP_MODE=clickhouse
+```
+
+---
+
+## CLI
+
+The repository includes a CLI entry point for running the production crew locally:
+
+```bash
+python run_local.py --auto-approve
+```
+
+Additional options are available for running individual stages, supplying a screenplay, exporting results, and enabling optional functionality:
+
+```bash
+python run_local.py --help
+```
+
+---
+
+## Web Application
+
+Start the local web server with:
+
+```bash
+python run_server.py
+```
+
+The application is then available at:
+
+```text
+http://127.0.0.1:8000
+```
+
+---
 
 ## Testing
+
+Run the test suite with:
 
 ```bash
 pytest -q
 ```
 
-With no credentials and no external services running: **87 passed, 11
-skipped**. Start the ClickHouse MCP server and the three MCP integration
-tests run too: **90 passed, 8 skipped**. The remaining skips need Gemini
-credentials, and skip cleanly without them.
+With no credentials and no external services running: **87 passed, 11 skipped**. Start the ClickHouse MCP server and the integration tests run as well: **90 passed, 8 skipped**. The remaining skips require Gemini credentials and skip cleanly without them.
 
-- Schema, solver, MCP, metrics, API and agent-configuration tests run with
-  no credentials.
-- `tests/test_clickhouse_integration.py` runs against a real cluster through
-  the real MCP server when `BACKLOT_TEST_CLICKHOUSE_MCP_URL` is set. It
-  checks row counts, tool scoping, and that every grounded budget amount
-  actually exists in ClickHouse.
-- Previz is the only path that spends money on generative media, and it
-  needs a second opt-in beyond credentials (`RUN_PREVIZ_LIVE_TESTS=1`). A
-  normal `pytest` run never triggers a billed call.
+The suite covers:
+
+* schemas and structured-output contracts
+* deterministic scheduling
+* MCP integration and tool scoping
+* metrics
+* API behaviour
+* agent configuration
+* ClickHouse integration
+
+`tests/test_clickhouse_integration.py` runs against a real cluster through the real MCP server when `BACKLOT_TEST_CLICKHOUSE_MCP_URL` is set. It verifies row counts, tool scoping, and that every grounded budget amount actually exists in ClickHouse.
+
+Generative previz is the only path that spends money on media generation, and it requires a second explicit opt-in beyond credentials (`RUN_PREVIZ_LIVE_TESTS=1`). A normal `pytest` run never triggers a billed call.
+
+---
 
 ## Deployment
 
-The application is containerised and targets Cloud Run.
-`deploy/cloud_run/deploy.sh` deploys the full FastAPI application, which is
-the deployment that keeps the human-in-the-loop approval flow intact.
-`deploy/agent_engine/deploy.sh` deploys the crew alone to Vertex AI Agent
-Engine and auto-approves, since Agent Engine's session API has nowhere to
-relay an HTTP approval.
+### Current deployment: Render
 
-> **Status:** these scripts have not been run against a live GCP project and
-> there is no hosted instance yet. The Dockerfile is build- and run-tested
-> locally and respects the `$PORT` Cloud Run injects. Check
-> `gcloud run deploy --help` against your CLI version before the first
-> deploy. Details in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+BACKLOT is deployed as a containerized application on **Render**:
 
-The Cloud Run configuration sets `GOOGLE_GENAI_USE_ENTERPRISE=TRUE` so every
-agent routes through Vertex AI, with no API key in the container. The
-ClickHouse password never reaches this application; it's configured only on
-whatever process runs `mcp-clickhouse`.
+https://backlot-t4u7.onrender.com
 
-## Optional: generative previz
+The container starts the web backend together with the MCP server required by the hosted configuration, and respects the platform-provided `PORT` environment variable.
 
-Storyboard frames, a short animatic and a temp music cue for the opening
-scene, using Gemini image generation, Veo and Lyria. Off by default and not
-part of the core workflow, since these are billed calls and a Veo clip can
-take several minutes. Turn it on with `--with-previz` or the checkbox in the
-UI.
+### Alternative deployment targets
 
-`VEO_MODEL` defaults to the Vertex AI GA identifier to match the deployment
-target. The AI Studio surface exposes preview identifiers instead, so a
-local API-key previz run needs one of those.
+The repository also contains deployment configuration for Google Cloud Run and Vertex AI Agent Engine. These are **alternative deployment paths**, not the current hosting environment for the public demo.
 
-## Data
+Refer to:
 
-Everything in `data/studio_dataset/` is synthetic. The figures are
-fabricated for demonstration and each file carries a `"_synthetic": true`
-flag. Real historical cost data is exactly the sort of thing a studio would
-never publish, so this stands in for it.
+```text
+docs/DEPLOYMENT.md
+```
 
-The integration itself is real. `scripts/clickhouse_load.sql` loads this
-dataset into actual ClickHouse tables, and the agents query it over MCP at
-runtime. Swapping in a studio's real tables is a configuration change, not a
-code change.
+for deployment-specific details.
+
+---
+
+## Data and Privacy
+
+The repository's included studio dataset is **synthetic**.
+
+It does not represent proprietary production-company records. Each file is explicitly flagged with `"_synthetic": true` and carries a disclaimer.
+
+The synthetic data demonstrates the grounding architecture, MCP integration, budgeting workflow, resource selection, and provenance tracking.
+
+The architecture is designed so that a studio could replace the demonstration dataset with its own authorized data sources. Swapping in real tables is a configuration change, not a code change.
+
+No private studio data is included in this repository.
+
+---
+
+## Optional Generative Previz
+
+BACKLOT optionally supports generative previsualization: storyboard frames, a short animatic, and a temp music cue for the opening scene.
+
+This functionality is separate from the core production-planning workflow and is disabled by default, since these are billed calls and video generation can take several minutes.
+
+The core BACKLOT pipeline does not depend on generated storyboards, animatics, or music cues.
+
+---
+
+## Project Structure
+
+```text
+BACKLOT/
+├── backlot/
+│   ├── agents/            one factory per specialist agent
+│   ├── api/               FastAPI backend and the web UI
+│   ├── orchestrator/      the Line Producer
+│   ├── schemas/           typed artifacts agents hand each other
+│   ├── tools/             deterministic scheduler, previz generation
+│   └── mcp_shim/          local MCP server over the synthetic dataset
+├── data/
+│   ├── studio_dataset/    synthetic cost, crew and location data
+│   ├── screenplays/       sample and re-plan demo screenplays
+│   └── icons/             UI assets
+├── tests/
+├── scripts/               ClickHouse load script, MCP server launcher
+├── deploy/                Cloud Run and Agent Engine configuration
+├── docs/
+├── Dockerfile
+├── docker-entrypoint.sh
+├── requirements.txt
+├── run_local.py
+└── run_server.py
+```
+
+---
+
+## Design Principles
+
+BACKLOT is built around a few principles:
+
+### Specialized intelligence
+
+Give each production responsibility to an agent designed for that role rather than relying on one general-purpose prompt.
+
+### Deterministic operations
+
+Use deterministic logic where consistency matters, particularly for scheduling and workflow control.
+
+### Evidence over invention
+
+When production data is available, connect decisions to source records. When evidence is unavailable, expose that limitation.
+
+### Controlled autonomy
+
+Agents can analyze, challenge, and re-plan the production, but the workflow remains bounded and the producer retains control over commitment.
+
+### Structured collaboration
+
+Agents exchange compact, typed artifacts instead of relying on long conversational transcripts.
+
+---
 
 ## License
 
-Apache License 2.0. See [LICENSE](LICENSE).
+BACKLOT is released under the **Apache License 2.0**.
+
+See [`LICENSE`](LICENSE) for the full license text.
